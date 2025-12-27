@@ -1,0 +1,82 @@
+services:
+  wedding-db:
+    image: postgres:13-alpine
+    container_name: wedding-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=wedding_user
+      - POSTGRES_PASSWORD=wedding_pass
+      - POSTGRES_DB=wedding_planner
+    volumes:
+      - wedding-db-data:/var/lib/postgresql/data
+      - /var/www/wedding-editor/server/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    networks:
+      - wedding-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wedding_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  wedding-nginx:
+    image: nginx:alpine
+    container_name: wedding-nginx
+    restart: unless-stopped
+    volumes:
+      - /var/www/wedding-editor/dist:/usr/share/nginx/html/editor:ro
+      - /var/www/wedding-editor/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.wedding-frontend.rule=Host(`arrebolweddings.com`) && PathPrefix(`/editor`)"
+      - "traefik.http.routers.wedding-frontend.entrypoints=https"
+      - "traefik.http.routers.wedding-frontend.tls=true"
+      - "traefik.http.routers.wedding-frontend.tls.certresolver=le"
+      - "traefik.http.routers.wedding-frontend.priority=100"
+      - "traefik.http.services.wedding-frontend.loadbalancer.server.port=80"
+
+  wedding-editor:
+    image: node:18-alpine
+    container_name: wedding-editor
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - /var/www/wedding-editor:/app
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=wedding-db
+      - DB_PORT=5432
+      - DB_USER=wedding_user
+      - DB_PASSWORD=wedding_pass
+      - DB_NAME=wedding_planner
+    env_file:
+      - /var/www/wedding-editor/.env.production
+    command: npx tsx server/index.ts
+    networks:
+      - traefik-public
+      - wedding-internal
+    depends_on:
+      wedding-db:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.wedding-api.rule=Host(`arrebolweddings.com`) && PathPrefix(`/editor-api`)"
+      - "traefik.http.routers.wedding-api.entrypoints=https"
+      - "traefik.http.routers.wedding-api.tls=true"
+      - "traefik.http.routers.wedding-api.tls.certresolver=le"
+      - "traefik.http.routers.wedding-api.priority=100"
+      - "traefik.http.routers.wedding-api.middlewares=wedding-api-chain"
+      - "traefik.http.middlewares.wedding-api-strip.stripprefix.prefixes=/editor-api"
+      - "traefik.http.middlewares.wedding-api-add.addprefix.prefix=/api"
+      - "traefik.http.middlewares.wedding-api-chain.chain.middlewares=wedding-api-strip,wedding-api-add"
+      - "traefik.http.services.wedding-api.loadbalancer.server.port=3002"
+
+networks:
+  traefik-public:
+    external: true
+  wedding-internal:
+    driver: bridge
+
+volumes:
+  wedding-db-data:

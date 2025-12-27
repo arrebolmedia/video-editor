@@ -1,0 +1,16 @@
+[Unit]
+Description=Wedding Video Planner API
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/wedding-editor
+Environment=NODE_ENV=production
+EnvironmentFile=/var/www/wedding-editor/.env.production
+ExecStart=/usr/bin/npx tsx server/index.ts
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

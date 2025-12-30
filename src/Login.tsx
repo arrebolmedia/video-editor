@@ -1,30 +1,56 @@
 import { useState } from 'react';
 
 interface LoginProps {
-  onLogin: (username: string, password: string) => void;
+  onLogin: (email: string, name: string, role: string) => void;
 }
 
 export default function Login({ onLogin }: LoginProps) {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
     
-    // Validación simple
-    if (username === 'anthony@arrebolweddings.com' && password === 'Lalo9513.-') {
-      onLogin(username, password);
-    } else {
-      setError('Usuario o contraseña incorrectos');
+    try {
+      const response = await fetch('/editor-api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success && data.user) {
+        onLogin(data.user.email, data.user.name, data.user.role);
+      } else {
+        setError(data.error || 'Usuario o contraseña incorrectos');
+      }
+    } catch (err) {
+      setError('Error al conectar con el servidor');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-stone-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full">
-        <div className="bg-white rounded-lg shadow-sm border border-stone-200 p-8">
+    <div 
+      className="min-h-screen flex items-center justify-center p-4 relative"
+      style={{
+        backgroundImage: 'url(https://arrebolweddings.com/images/gallery/TOP-SyP-324-hero.webp)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
+      {/* Overlay oscuro para mejor legibilidad */}
+      <div className="absolute inset-0 bg-black bg-opacity-50"></div>
+      
+      <div className="max-w-md w-full relative z-10">
+        <div className="bg-white rounded-lg shadow-xl border border-stone-200 p-8 backdrop-blur-sm">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-gray-800 mb-2">
               Wedding Video Planner
@@ -34,17 +60,18 @@ export default function Login({ onLogin }: LoginProps) {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
-                Usuario
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                Email
               </label>
               <input
-                id="username"
+                id="email"
                 type="email"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-2 border border-stone-300 rounded-md focus:ring-2 focus:ring-gray-800 focus:border-transparent"
-                placeholder="anthony@arrebolweddings.com"
+                placeholder="tu@email.com"
                 required
+                disabled={loading}
               />
             </div>
 
@@ -60,6 +87,7 @@ export default function Login({ onLogin }: LoginProps) {
                 className="w-full px-4 py-2 border border-stone-300 rounded-md focus:ring-2 focus:ring-gray-800 focus:border-transparent"
                 placeholder="••••••••"
                 required
+                disabled={loading}
               />
             </div>
 
@@ -71,9 +99,10 @@ export default function Login({ onLogin }: LoginProps) {
 
             <button
               type="submit"
-              className="w-full bg-gray-800 text-white py-3 rounded-md hover:bg-gray-700 transition font-medium"
+              disabled={loading}
+              className="w-full bg-gray-800 text-white py-3 rounded-md hover:bg-gray-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Iniciar Sesión
+              {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
             </button>
           </form>
 

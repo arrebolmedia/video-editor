@@ -10,34 +10,12 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// Disable caching for API responses
-app.use((req, res, next) => {
-  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-  res.set('Pragma', 'no-cache');
-  res.set('Expires', '0');
-  next();
-});
-
 // In-memory storage fallback
 const memoryDB: any = {
   projects: [],
   scenes: [],
   versions: [],
-  sceneRefs: [],
-  users: [
-    {
-      email: 'anthony@arrebolweddings.com',
-      password: 'Lalo9513.-',
-      name: 'Anthony Luna',
-      role: 'admin'
-    },
-    {
-      email: 'andrey@arrebolweddings.com',
-      password: 'Andrey2025.-',
-      name: 'Andrey Luna',
-      role: 'editor'
-    }
-  ]
+  sceneRefs: []
 };
 
 let nextId = 1;
@@ -45,35 +23,6 @@ let nextId = 1;
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', storage: useMemoryStorage ? 'memory' : 'postgresql' });
-});
-
-// Login endpoint
-app.post('/api/login', (req, res) => {
-  const { email, password } = req.body;
-  
-  const user = memoryDB.users.find((u: any) => u.email === email && u.password === password);
-  
-  if (user) {
-    res.json({
-      success: true,
-      user: {
-        email: user.email,
-        name: user.name,
-        role: user.role
-      }
-    });
-  } else {
-    res.status(401).json({ success: false, error: 'Credenciales incorrectas' });
-  }
-});
-
-// Get users (editors only)
-app.get('/api/users', (req, res) => {
-  const editors = memoryDB.users.filter((u: any) => u.role === 'editor').map((u: any) => ({
-    email: u.email,
-    name: u.name
-  }));
-  res.json(editors);
 });
 
 // Sync projects from Baserow
@@ -86,52 +35,25 @@ app.post('/api/sync/baserow', async (req, res) => {
       return res.status(500).json({ error: 'Baserow token not configured' });
     }
 
-    // Fetch only "Cerrado-ganado" projects from 2025 onwards
-    // We'll fetch in batches since Baserow has pagination
-    let allProjects: any[] = [];
-    let page = 1;
-    let hasMore = true;
-
-    while (hasMore) {
-      const response = await fetch(`${baserowUrl}/api/database/rows/table/34/?user_field_names=true&size=200&page=${page}`, {
-        headers: {
-          'Authorization': `Token ${baserowToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Baserow fetch error:', response.status, errorText);
-        return res.status(500).json({ error: 'Failed to fetch from Baserow', details: errorText });
+    // Fetch entregables from Baserow table 34
+    const response = await fetch(`${baserowUrl}/api/database/rows/table/34/?user_field_names=true&size=200`, {
+      headers: {
+        'Authorization': `Token ${baserowToken}`,
+        'Content-Type': 'application/json'
       }
+    });
 
-      const data = await response.json();
-      allProjects = allProjects.concat(data.results || []);
-      hasMore = data.next !== null;
-      page++;
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Baserow fetch error:', response.status, errorText);
+      return res.status(500).json({ error: 'Failed to fetch from Baserow', details: errorText });
     }
 
-    // Filter: Status = "Cerrado-ganado" AND Fecha del Evento >= 2025-01-01
-    const projects = allProjects.filter((row: any) => {
-      const status = row.Status?.value;
-      const weddingDate = row['Fecha del Evento'];
-      
-      // Check for various status formats (Cerrado-ganado, Cerrado–ganado, etc.)
-      if (!status || !status.toLowerCase().includes('cerrado') || !status.toLowerCase().includes('ganado')) {
-        return false;
-      }
-      if (!weddingDate) return false;
-      
-      const eventDate = new Date(weddingDate);
-      const cutoffDate = new Date('2025-01-01');
-      
-      return eventDate >= cutoffDate;
-    });
+    const data = await response.json();
+    const projects = data.results || [];
     
     let syncedCount = 0;
     let errors = [];
-    let skippedCount = 0;
 
     if (useMemoryStorage) {
       // Memory storage
@@ -143,68 +65,16 @@ app.post('/api/sync/baserow', async (req, res) => {
             const weddingDate = row['Fecha del Evento'] || null;
             const projectName = row['Nombre'] || 'Sin nombre';
 
-            // Asignar proyectos específicos a Andrey
-            let assignedTo = null;
-            if (projectName === 'Tanya & Eder' || projectName === 'Dulce & Jorge' || projectName === 'Paulina & Rogelio') {
-              assignedTo = 'andrey@arrebolweddings.com';
-            }
-
-            const projectId = nextId++;
             memoryDB.projects.push({
-              id: projectId,
+              id: nextId++,
               name: projectName,
               wedding_date: weddingDate,
               baserow_id: row.id,
               frame_rate: 24,
-              assigned_to: assignedTo,
               created_at: new Date(),
               updated_at: new Date()
             });
-            
-            // Add default wedding scenes
-            for (let i = 0; i < defaultWeddingScenes.length; i++) {
-              const sceneData = defaultWeddingScenes[i];
-              memoryDB.scenes.push({
-                id: nextId++,
-                project_id: projectId,
-                name: sceneData.name,
-                division: sceneData.division,
-                description: sceneData.description,
-                planned_duration: sceneData.planned_duration,
-                actual_duration: null,
-                is_anchor_moment: sceneData.is_anchor_moment,
-                anchor_description: sceneData.anchor_description,
-                priority: sceneData.priority,
-                scene_order: i,
-                created_at: new Date(),
-                updated_at: new Date()
-              });
-            }
-            
-            // Add default versions (Teaser, Highlights, Full)
-            const defaultVersions = [
-              { name: 'Teaser', type: 'short', target_duration_min: 55, target_duration_max: 65, description: 'Versión corta de 60 segundos' },
-              { name: 'Highlights', type: 'medium', target_duration_min: 180, target_duration_max: 300, description: 'Highlights de 5 minutos' },
-              { name: 'Full', type: 'long', target_duration_min: 1080, target_duration_max: 1320, description: 'Video completo de 18-22 minutos' }
-            ];
-            
-            for (const versionData of defaultVersions) {
-              memoryDB.versions.push({
-                id: nextId++,
-                project_id: projectId,
-                name: versionData.name,
-                type: versionData.type,
-                target_duration_min: versionData.target_duration_min,
-                target_duration_max: versionData.target_duration_max,
-                description: versionData.description,
-                created_at: new Date(),
-                updated_at: new Date()
-              });
-            }
-            
             syncedCount++;
-          } else {
-            skippedCount++;
           }
         } catch (err: any) {
           errors.push({ row_id: row.id, error: err.message });
@@ -223,66 +93,11 @@ app.post('/api/sync/baserow', async (req, res) => {
             const weddingDate = row['Fecha del Evento'] || null;
             const projectName = row['Nombre'] || 'Sin nombre';
 
-            const projectResult = await pool.query(
-              `INSERT INTO projects (name, wedding_date, baserow_id, frame_rate, 
-                save_the_date_photo, wedding_day_photo, save_the_date_video, 
-                wedding_day_video, highlights_video, teaser_video, photobook) 
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
-              [
-                projectName, 
-                weddingDate, 
-                row.id, 
-                24,
-                row['Save The Date 📸']?.value || null,
-                row['Wedding Day 📸']?.value || null,
-                row['Save The Date 📥']?.value || null,
-                row['Wedding Day 📥']?.value || null,
-                row['Highlights 📥']?.value || null,
-                row['Teaser 📥']?.value || null,
-                row['Photobook']?.value || null
-              ]
+            await pool.query(
+              'INSERT INTO projects (name, wedding_date, baserow_id, frame_rate) VALUES ($1, $2, $3, $4)',
+              [projectName, weddingDate, row.id, 24]
             );
-            
-            const projectId = projectResult.rows[0].id;
-            
-            // Insert default wedding scenes
-            const sceneIds: number[] = [];
-            for (let i = 0; i < defaultWeddingScenes.length; i++) {
-              const sceneData = defaultWeddingScenes[i];
-              const sceneResult = await pool.query(
-                'INSERT INTO scenes (project_id, name, division, description, planned_duration, is_anchor_moment, anchor_description, priority, scene_order) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id',
-                [projectId, sceneData.name, sceneData.division, sceneData.description, sceneData.planned_duration, sceneData.is_anchor_moment, sceneData.anchor_description, sceneData.priority, i]
-              );
-              sceneIds.push(sceneResult.rows[0].id);
-            }
-            
-            // Create 3 default versions
-            const versions = [
-              { name: 'Teaser', type: 'short', target_duration_min: 55, target_duration_max: 65 },
-              { name: 'Highlights', type: 'medium', target_duration_min: 180, target_duration_max: 300 },
-              { name: 'Full', type: 'long', target_duration_min: 1800, target_duration_max: 3600 }
-            ];
-            
-            for (const versionData of versions) {
-              const versionResult = await pool.query(
-                'INSERT INTO versions (project_id, name, type, target_duration_min, target_duration_max) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-                [projectId, versionData.name, versionData.type, versionData.target_duration_min, versionData.target_duration_max]
-              );
-              
-              // For Completo version, add all scenes
-              if (versionData.type === 'long') {
-                for (let i = 0; i < sceneIds.length; i++) {
-                  await pool.query(
-                    'INSERT INTO scene_references (version_id, scene_id, included, ref_order) VALUES ($1, $2, $3, $4)',
-                    [versionResult.rows[0].id, sceneIds[i], true, i]
-                  );
-                }
-              }
-            }
-            
             syncedCount++;
-          } else {
-            skippedCount++;
           }
         } catch (err: any) {
           errors.push({ row_id: row.id, error: err.message });
@@ -290,11 +105,10 @@ app.post('/api/sync/baserow', async (req, res) => {
       }
     }
 
-    console.log(`Baserow sync completed: ${syncedCount} new projects from ${projects.length} filtered (Cerrado-ganado desde 2025)`);
+    console.log(`Baserow sync completed: ${syncedCount} new projects from ${projects.length} total`);
     res.json({ 
       success: true, 
-      synced: syncedCount,
-      skipped: skippedCount,
+      synced: syncedCount, 
       total: projects.length,
       errors: errors.length > 0 ? errors : undefined
     });
@@ -307,29 +121,10 @@ app.post('/api/sync/baserow', async (req, res) => {
 // Projects
 app.get('/api/projects', async (req, res) => {
   try {
-    const userEmail = req.query.user as string;
-    const userRole = req.query.role as string;
-    
     if (useMemoryStorage) {
-      let projects = memoryDB.projects;
-      
-      // Si es editor, solo mostrar proyectos asignados
-      if (userRole === 'editor' && userEmail) {
-        projects = projects.filter((p: any) => p.assigned_to === userEmail);
-      }
-      
-      res.json(projects);
+      res.json(memoryDB.projects);
     } else {
-      let query = 'SELECT * FROM projects';
-      const params: any[] = [];
-      
-      if (userRole === 'editor' && userEmail) {
-        query += ' WHERE assigned_to = $1';
-        params.push(userEmail);
-      }
-      
-      query += ' ORDER BY created_at DESC';
-      const result = await pool.query(query, params);
+      const result = await pool.query('SELECT * FROM projects ORDER BY created_at DESC');
       res.json(result.rows);
     }
   } catch (error) {
@@ -347,7 +142,6 @@ app.post('/api/projects', async (req, res) => {
         name,
         wedding_date,
         frame_rate: frame_rate || 24,
-        assigned_to: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -491,33 +285,6 @@ app.put('/api/projects/:id', async (req, res) => {
     }
   } catch (error) {
     res.status(500).json({ error: 'Error updating project' });
-  }
-});
-
-// Assign editor to project
-app.put('/api/projects/:id/assign', async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    const { assigned_to } = req.body;
-    
-    if (useMemoryStorage) {
-      const project = memoryDB.projects.find((p: any) => p.id === id);
-      if (project) {
-        project.assigned_to = assigned_to;
-        project.updated_at = new Date().toISOString();
-        res.json(project);
-      } else {
-        res.status(404).json({ error: 'Project not found' });
-      }
-    } else {
-      const result = await pool.query(
-        'UPDATE projects SET assigned_to = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
-        [assigned_to, id]
-      );
-      res.json(result.rows[0]);
-    }
-  } catch (error) {
-    res.status(500).json({ error: 'Error assigning project' });
   }
 });
 
@@ -800,152 +567,6 @@ app.patch('/api/versions/:id/status', async (req, res) => {
   } catch (error) {
     console.error('Error updating version status:', error);
     res.status(500).json({ error: 'Error updating version status' });
-  }
-});
-
-// Delete all projects
-app.delete('/api/projects/all', async (req, res) => {
-  try {
-    if (useMemoryStorage) {
-      // Clear memory storage
-      memoryDB.projects = [];
-      memoryDB.scenes = [];
-      memoryDB.versions = [];
-      memoryDB.sceneRefs = [];
-      nextId = 1;
-      res.json({ success: true, message: 'All projects deleted from memory storage' });
-    } else {
-      // PostgreSQL - delete all projects (cascades to scenes, versions, scene_references)
-      const result = await pool.query('DELETE FROM projects');
-      res.json({ success: true, message: `Deleted ${result.rowCount} projects`, count: result.rowCount });
-    }
-  } catch (error) {
-    console.error('Error deleting all projects:', error);
-    res.status(500).json({ error: 'Error deleting all projects' });
-  }
-});
-
-// Auto-sync past weddings (bodas cuya fecha ya pasó)
-app.post('/api/sync/past-weddings', async (req, res) => {
-  try {
-    const baserowToken = process.env.BASEROW_TOKEN;
-    const baserowUrl = process.env.BASEROW_URL || 'https://data.arrebolweddings.com';
-    
-    if (!baserowToken) {
-      return res.status(500).json({ error: 'Baserow token not configured' });
-    }
-
-    // Fetch all projects from Baserow
-    let allProjects: any[] = [];
-    let page = 1;
-    let hasMore = true;
-
-    while (hasMore) {
-      const response = await fetch(`${baserowUrl}/api/database/rows/table/34/?user_field_names=true&size=200&page=${page}`, {
-        headers: {
-          'Authorization': `Token ${baserowToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        return res.status(500).json({ error: 'Failed to fetch from Baserow', details: errorText });
-      }
-
-      const data = await response.json();
-      allProjects = allProjects.concat(data.results || []);
-      hasMore = data.next !== null;
-      page++;
-    }
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // Filter: Status = "Cerrado-ganado", >= 2025, and wedding date has passed
-    const pastWeddings = allProjects.filter((row: any) => {
-      const status = row.Status?.value;
-      const weddingDate = row['Fecha del Evento'];
-      
-      // Check for various status formats
-      if (!status || !status.toLowerCase().includes('cerrado') || !status.toLowerCase().includes('ganado')) {
-        return false;
-      }
-      if (!weddingDate) return false;
-      
-      const eventDate = new Date(weddingDate);
-      const cutoffDate = new Date('2025-01-01');
-      
-      return eventDate >= cutoffDate && eventDate < today;
-    });
-    
-    let syncedCount = 0;
-    let skippedCount = 0;
-    let errors = [];
-
-    if (useMemoryStorage) {
-      for (const row of pastWeddings) {
-        try {
-          const existing = memoryDB.projects.find((p: any) => p.baserow_id === row.id);
-          
-          if (!existing) {
-            const weddingDate = row['Fecha del Evento'];
-            const projectName = row['Nombre'] || 'Sin nombre';
-
-            memoryDB.projects.push({
-              id: nextId++,
-              name: projectName,
-              wedding_date: weddingDate,
-              baserow_id: row.id,
-              frame_rate: 24,
-              created_at: new Date(),
-              updated_at: new Date()
-            });
-            syncedCount++;
-          } else {
-            skippedCount++;
-          }
-        } catch (err: any) {
-          errors.push({ row_id: row.id, error: err.message });
-        }
-      }
-    } else {
-      for (const row of pastWeddings) {
-        try {
-          const existing = await pool.query(
-            'SELECT id FROM projects WHERE baserow_id = $1',
-            [row.id]
-          );
-
-          if (existing.rows.length === 0) {
-            const weddingDate = row['Fecha del Evento'];
-            const projectName = row['Nombre'] || 'Sin nombre';
-
-            await pool.query(
-              'INSERT INTO projects (name, wedding_date, baserow_id, frame_rate) VALUES ($1, $2, $3, $4)',
-              [projectName, weddingDate, row.id, 24]
-            );
-            syncedCount++;
-          } else {
-            skippedCount++;
-          }
-        } catch (err: any) {
-          errors.push({ row_id: row.id, error: err.message });
-        }
-      }
-    }
-
-    console.log(`Past weddings sync: ${syncedCount} new projects from ${pastWeddings.length} past weddings`);
-    res.json({ 
-      success: true, 
-      synced: syncedCount,
-      skipped: skippedCount,
-      total: pastWeddings.length,
-      errors: errors.length > 0 ? errors : undefined
-    });
-  } catch (error: any) {
-    console.error('Error syncing past weddings:', error);
-    res.status(500).json({ error: 'Error syncing past weddings', message: error.message });
   }
 });
 

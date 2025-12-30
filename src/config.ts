@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.PROD ? '/editor-api' : '';
+const API_BASE_URL = '/editor-api';
 
 export const API = {
   health: `${API_BASE_URL}/api/health`,

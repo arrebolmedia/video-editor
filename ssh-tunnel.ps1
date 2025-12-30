@@ -18,8 +18,8 @@ if ($LASTEXITCODE -eq 0) {
     ssh -i $sshKey $remoteUser@$remoteHost "docker ps | grep postgres"
     Write-Host ""
     Write-Host "Creando túnel SSH..." -ForegroundColor Cyan
-    Write-Host "  Local:  localhost:$localPort → Tu aplicación se conecta aquí" -ForegroundColor White
-    Write-Host "  Remoto: $remoteHost:$remotePort → PostgreSQL en Docker" -ForegroundColor White
+    Write-Host "  Local:  localhost:${localPort} → Tu aplicación se conecta aquí" -ForegroundColor White
+    Write-Host "  Remoto: ${remoteHost}:${remotePort} → PostgreSQL en Docker" -ForegroundColor White
     Write-Host ""
     Write-Host "✓ Túnel activo. Mantén esta ventana abierta." -ForegroundColor Green
     Write-Host "  Presiona Ctrl+C para cerrar el túnel." -ForegroundColor Yellow

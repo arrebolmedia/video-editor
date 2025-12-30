@@ -1,0 +1,72 @@
+name|division|description|planned_duration|is_anchor_moment|anchor_description|priority
+Preparativos Novia|INTRODUCCION|Mastershoot|30|NO||nice-to-have
+Preparativos Novia|NUCLEO|Retoque maquillaje y peinado|60|NO||must-have
+Preparativos Novia|NUCLEO|Colocación de vestido y accesorios|90|NO||must-have
+Preparativos Novia|NUCLEO|Sesión de batas con damas|45|NO||must-have
+Preparativos Novia|RESOLUCION|Fotos sola y con familia|45|NO||must-have
+Preparativos Novio|INTRODUCCION|Mastershoot|20|NO||nice-to-have
+Preparativos Novio|NUCLEO|Colocación de traje y accesorios|45|NO||must-have
+Preparativos Novio|NUCLEO|Brindis|30|NO||must-have
+Preparativos Novio|RESOLUCION|Fotos solo, con amigos y familia|30|NO||nice-to-have
+First Look|INTRODUCCION|Espera del novio|30|NO||nice-to-have
+First Look|NUCLEO|First look papá|60|NO||must-have
+First Look|NUCLEO|First look novio|90|SI|First Look (novio)|must-have
+First Look|RESOLUCION|Primeras palabras y abrazo|45|NO||must-have
+Sesión Novios|NUCLEO|Interacción guiada|120|NO||nice-to-have
+Sesión Novios|NUCLEO|Interacción espontánea|90|NO||nice-to-have
+Sesión Novios|RESOLUCION|Beauty shot|60|NO|CLOSING|nice-to-have
+Sesión Familia|NUCLEO|Familia novia|60|NO||nice-to-have
+Sesión Familia|NUCLEO|Familia novio|60|NO||nice-to-have
+Sesión Familia|NUCLEO|Familias juntas|60|NO||nice-to-have
+Sesión Damas|NUCLEO|Interacción guiada|45|NO||nice-to-have
+Sesión Damas|NUCLEO|Interacción espontánea|30|NO||nice-to-have
+Sesión Caballeros|NUCLEO|Interacción guiada|45|NO||nice-to-have
+Sesión Caballeros|NUCLEO|Interacción espontánea|30|NO||nice-to-have
+Ceremonia Civil|INTRODUCCION|Palabras del juez|30|NO|OPENING|nice-to-have
+Ceremonia Civil|INTRODUCCION|Entrada e inicio de ceremonia|45|NO||nice-to-have
+Ceremonia Civil|NUCLEO|Lectura y votos legales|60|SI|"Sí, acepto" (civil)|must-have
+Ceremonia Civil|NUCLEO|Primer beso como casados|15|SI|Primer beso|must-have
+Ceremonia Religiosa|INTRODUCCION|Palabras de bienvenida del padre|45|NO|OPENING|nice-to-have
+Ceremonia Civil|RESOLUCION|Salida y felicitaciones|45|NO||must-have
+Ceremonia Religiosa|INTRODUCCION|Cortejo|60|NO||nice-to-have
+Ceremonia Religiosa|INTRODUCCION|Entrada de la novia|90|SI|Entrada de la novia|must-have
+Ceremonia Religiosa|NUCLEO|Lecturas|90|NO||must-have
+Ceremonia Religiosa|NUCLEO|Sermón del padre|120|NO||must-have
+Ceremonia Religiosa|NUCLEO|Promesas matrimoniales|60|SI|Yo, te acepto a ti, como mi esposo...|must-have
+Ceremonia Religiosa|NUCLEO|Intercambio de anillos|45|SI|Entrega de anillos (ceremonia religiosa)|must-have
+Ceremonia Religiosa|NUCLEO|Rito: arras, velación, lazo, ramo a la virgen|90|NO||must-have
+Ceremonia Religiosa|NUCLEO|Saludo de paz|30|NO||must-have
+Ceremonia Religiosa|NUCLEO|Primer beso como casados|20|SI|Primer beso|must-have
+Ceremonia Religiosa|RESOLUCION|Salida entre aplausos|60|SI|Salida de ceremonia|must-have
+Cóctel|INTRODUCCION|Llegada de invitados|30|NO||nice-to-have
+Cóctel|NUCLEO|Felicitaciones a los recién casados|60|NO||nice-to-have
+Cóctel|NUCLEO|Convivencia, canapés y bebidas|240|NO||nice-to-have
+Cóctel|RESOLUCION|Invitación a pasar al salón|30|NO||nice-to-have
+Entrada Novios|INTRODUCCION|Expectativa y música|30|NO||nice-to-have
+Entrada Novios|NUCLEO|Gran entrada de los novios|60|SI|Entrada de novios|must-have
+Entrada Novios|RESOLUCION|Llegada a la mesa principal|20|NO||nice-to-have
+Brindis|INTRODUCCION|Palabras de apertura de los novios|60|NO|OPENING|nice-to-have
+Brindis|INTRODUCCION|Bienvenida del anfitrión/MC|30|NO|OPENING|nice-to-have
+Banquete|INTRODUCCION|Mastershoot|45|NO||nice-to-have
+Banquete|NUCLEO|Servicio y convivencia|600|NO||nice-to-have
+Banquete|RESOLUCION|Gente de pie|30|NO||nice-to-have
+Brindis|NUCLEO|Discurso emocional|120|NO||must-have
+Bailes|RESOLUCION|Chisperos durante primer baile|45|NO|CLOSING|nice-to-have
+Brindis|NUCLEO|Brindis|45|SI|Brindis clave|must-have
+Bailes|INTRODUCCION|Preparando la pista de baile|30|NO||nice-to-have
+Bailes|NUCLEO|Baile novia y papá|180|NO||must-have
+Fiesta|RESOLUCION|Novios bailando juntos en la pista|90|NO|CLOSING|nice-to-have
+Bailes|NUCLEO|Baile novio y mamá|180|NO||must-have
+Bailes|NUCLEO|Baile de esposos|240|SI|Primer baile|must-have
+Bailes|RESOLUCION|Apertura de pista|60|NO||must-have
+Fiesta|INTRODUCCION|Mastershoot|45|NO||nice-to-have
+Fiesta|NUCLEO|Baile, risas, tragos|400|NO||nice-to-have
+Fiesta|NUCLEO|Happenings|200|NO||nice-to-have
+Ramo|INTRODUCCION|Solteras al frente|20|NO||nice-to-have
+Ramo|NUCLEO|Lanzamiento del ramo|45|SI|Lanzamiento de ramo|nice-to-have
+Ramo|RESOLUCION|Celebración de quien lo atrapó|20|NO||nice-to-have
+Liga|INTRODUCCION|Baile del novio|60|NO||nice-to-have
+Liga|NUCLEO|Solteros al frente|20|NO||nice-to-have
+Liga|NUCLEO|Lanzamiento de la liga|45|SI|Lanzamiento de liga|nice-to-have
+Liga|RESOLUCION|Celebración de quien la atrapó|20|NO||nice-to-have
+(70 rows)

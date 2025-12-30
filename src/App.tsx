@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import Login from './Login';
 
-const API_BASE = import.meta.env.MODE === 'production' ? '/editor-api' : '/api';
+const API_BASE = '/editor-api';
 
 interface Project {
   id: number;
   name: string;
   wedding_date?: string;
+  assigned_to?: string | null;
   created_at: string;
 }
 
@@ -34,18 +35,35 @@ interface Version {
   status?: string;
 }
 
+interface User {
+  email: string;
+  name: string;
+}
+
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     const authValue = localStorage.getItem('auth');
-    console.log('Initial auth check:', authValue);
-    return authValue === 'true';
+    const authVersion = localStorage.getItem('authVersion');
+    console.log('Initial auth check:', authValue, 'version:', authVersion);
+    // Invalidar sesiones antiguas (antes de versión 2)
+    if (authValue === 'true' && authVersion !== '2') {
+      localStorage.clear();
+      return false;
+    }
+    return authValue === 'true' && authVersion === '2';
   });
+  const [userEmail, setUserEmail] = useState(() => localStorage.getItem('userEmail') || '');
+  const [userName, setUserName] = useState(() => localStorage.getItem('userName') || '');
+  const [userRole, setUserRole] = useState(() => localStorage.getItem('userRole') || '');
+  const [users, setUsers] = useState<User[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [versions, setVersions] = useState<Version[]>([]);
   const [newProjectName, setNewProjectName] = useState('');
+  const [newProjectDate, setNewProjectDate] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingProjects, setLoadingProjects] = useState(true);
   const [selectedScenes, setSelectedScenes] = useState<number[]>([]);
   const [editingScene, setEditingScene] = useState<Scene | null>(null);
   const [draggedScene, setDraggedScene] = useState<Scene | null>(null);
@@ -58,17 +76,31 @@ function App() {
   const [compactView, setCompactView] = useState(true);
   const [showScenesTable, setShowScenesTable] = useState(true);
   const [showSelectedTable, setShowSelectedTable] = useState(true);
-
-  const handleLogin = (username: string, password: string) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState<'name' | 'date'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestionKey, setSuggestionKey] = useState(0);
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const handleLogin = (email: string, name: string, role: string) => {
     localStorage.setItem('auth', 'true');
-    localStorage.setItem('username', username);
+    localStorage.setItem('authVersion', '2');
+    localStorage.setItem('userEmail', email);
+    localStorage.setItem('userName', name);
+    localStorage.setItem('userRole', role);
     setIsAuthenticated(true);
+    setUserEmail(email);
+    setUserName(name);
+    setUserRole(role);
   };
 
   const handleLogout = () => {
     console.log('Logout clicked!');
     localStorage.removeItem('auth');
-    localStorage.removeItem('username');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userName');
+    localStorage.removeItem('userRole');
     console.log('localStorage cleared, auth:', localStorage.getItem('auth'));
     setIsAuthenticated(false);
     console.log('isAuthenticated set to false');
@@ -81,6 +113,7 @@ function App() {
   useEffect(() => {
     if (isAuthenticated) {
       syncWithBaserow();
+      fetchUsers();
     }
   }, [isAuthenticated]);
 
@@ -97,11 +130,49 @@ function App() {
 
   const fetchProjects = async () => {
     try {
-      const res = await fetch(`${API_BASE}/projects`);
+      const params = new URLSearchParams({
+        user: userEmail,
+        role: userRole
+      });
+      const res = await fetch(`${API_BASE}/projects?${params}`);
       const data = await res.json();
       setProjects(data);
     } catch (error) {
       console.error('Error fetching projects:', error);
+    } finally {
+      setLoadingProjects(false);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/users`);
+      const data = await res.json();
+      setUsers(data);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
+
+  const assignEditor = async (projectId: number, editorEmail: string | null) => {
+    try {
+      await fetch(`${API_BASE}/projects/${projectId}/assign`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assigned_to: editorEmail })
+      });
+      
+      // Actualizar proyecto en el estado local
+      setProjects(projects.map(p => 
+        p.id === projectId ? { ...p, assigned_to: editorEmail } : p
+      ));
+      
+      // Si es el proyecto seleccionado, actualizarlo también
+      if (selectedProject?.id === projectId) {
+        setSelectedProject({ ...selectedProject, assigned_to: editorEmail });
+      }
+    } catch (error) {
+      console.error('Error assigning editor:', error);
     }
   };
 
@@ -214,7 +285,11 @@ function App() {
       const res = await fetch(`${API_BASE}/projects`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newProjectName, frame_rate: 24 })
+        body: JSON.stringify({ 
+          name: newProjectName, 
+          frame_rate: 24,
+          wedding_date: newProjectDate || null
+        })
       });
       
       console.log('Response status:', res.status);
@@ -223,6 +298,8 @@ function App() {
         console.log('Project created:', project);
 
         setNewProjectName('');
+        setNewProjectDate('');
+        setShowCreateModal(false);
         fetchProjects();
         setSelectedProject(project);
       } else {
@@ -297,7 +374,7 @@ function App() {
     if (!draggedScene) return;
 
     try {
-      await fetch('/api/scenes/reorder', {
+      await fetch(`${API_BASE}/scenes/reorder`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -359,9 +436,75 @@ function App() {
     setExpandedScenes(newExpanded);
   };
 
+  const getSuggestedScenes = () => {
+    if (!activeVersion) return { opening: [], anchor: [], closing: [] };
+
+    // Función para shuffle aleatorio
+    const shuffle = <T,>(array: T[]): T[] => {
+      const shuffled = [...array];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled;
+    };
+
+    // Openings: escenas con OPENING explícito O First Look novio
+    const openingScenes = shuffle(scenes.filter(s => 
+      s.anchor_description === 'OPENING' ||
+      (s.name === 'First Look' && s.description === 'First look novio')
+    ));
+    const anchorScenes = shuffle(scenes.filter(s => s.is_anchor_moment === 'SI'));
+    // Closings: escenas con CLOSING explícito O anchors en RESOLUCION
+    const closingScenes = shuffle(scenes.filter(s => 
+      s.anchor_description === 'CLOSING' || 
+      (s.is_anchor_moment === 'SI' && s.division === 'RESOLUCION')
+    ));
+
+    // Determinar cantidad según el nombre de la versión
+    const versionName = activeVersion.name.toLowerCase();
+    let openingCount = 1;
+    let anchorCount = 5;
+    let closingCount = 1;
+
+    if (versionName.includes('highlights')) {
+      anchorCount = 10;
+    } else if (versionName.includes('full')) {
+      anchorCount = 15;
+    }
+
+    return {
+      opening: openingScenes.slice(0, openingCount),
+      anchor: anchorScenes.slice(0, anchorCount),
+      closing: closingScenes.slice(0, closingCount)
+    };
+  };
+
   const getTotalDuration = (sceneGroup: Scene[]) => {
     return sceneGroup.reduce((sum, s) => sum + s.planned_duration, 0);
   };
+
+  // Filter and sort projects
+  const filteredAndSortedProjects = projects
+    .filter(project => 
+      project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (project.wedding_date && project.wedding_date.includes(searchTerm))
+    )
+    .sort((a, b) => {
+      let comparison = 0;
+      switch (sortBy) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case 'date':
+          if (!a.wedding_date && !b.wedding_date) comparison = 0;
+          else if (!a.wedding_date) comparison = 1;
+          else if (!b.wedding_date) comparison = -1;
+          else comparison = new Date(a.wedding_date).getTime() - new Date(b.wedding_date).getTime();
+          break;
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
 
   // Check authentication FIRST
   if (!isAuthenticated) {
@@ -386,59 +529,275 @@ function App() {
         </header>
 
         <main className="container mx-auto px-8 py-12">
-          <div className="max-w-2xl mx-auto">
-            <h2 className="text-3xl font-bold mb-8">Proyectos</h2>
-
-            <form onSubmit={createProject} className="mb-12">
-              <div className="flex gap-4">
-                <input
-                  type="text"
-                  value={newProjectName}
-                  onChange={(e) => setNewProjectName(e.target.value)}
-                  placeholder="Nombre del proyecto"
-                  className="flex-1 px-4 py-3 bg-white border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-stone-400 text-gray-800"
-                />
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="font-heading text-3xl font-bold">Proyectos</h2>
+              {/* Solo admin puede crear proyectos */}
+              {userRole === 'admin' && (
                 <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-lg font-medium disabled:opacity-50 transition"
+                  onClick={() => setShowCreateModal(true)}
+                  className="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-lg font-medium transition flex items-center gap-2"
                 >
-                  {loading ? 'Creando...' : 'Crear Proyecto'}
+                  <span>+</span> Nuevo Proyecto
                 </button>
-              </div>
-            </form>
-
-            <div className="space-y-4">
-              {projects.length === 0 ? (
-                <p className="text-gray-500 text-center py-12">No hay proyectos aún. Crea uno para empezar.</p>
-              ) : (
-                projects.map((project) => (
-                  <button
-                    key={project.id}
-                    onClick={() => setSelectedProject(project)}
-                    className="w-full bg-white border border-stone-200 rounded-lg p-6 hover:border-stone-400 hover:shadow-md transition text-left"
-                  >
-                    <h3 className="text-xl font-semibold mb-2 text-gray-800">{project.name}</h3>
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
-                      {project.wedding_date && (
-                        <span>
-                          {new Date(project.wedding_date).toLocaleDateString('es-ES', { 
-                            year: 'numeric', 
-                            month: 'long', 
-                            day: 'numeric' 
-                          })}
-                        </span>
-                      )}
-                      <span>
-                        Creado: {new Date(project.created_at).toLocaleDateString('es-ES')}
-                      </span>
-                    </div>
-                  </button>
-                ))
               )}
             </div>
+
+            {/* Search and Sort Controls */}
+            <div className="mb-8 space-y-4">
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Buscar por nombre o fecha..."
+                    className="w-full px-4 py-3 bg-white border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-stone-400 text-gray-800"
+                  />
+                </div>
+                <div className="flex border border-stone-300 rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => setSortBy('date')}
+                    className={`px-4 py-3 transition ${sortBy === 'date' ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 hover:bg-stone-50'}`}
+                  >
+                    Fecha
+                  </button>
+                  <button
+                    onClick={() => setSortBy('name')}
+                    className={`px-4 py-3 transition ${sortBy === 'name' ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 hover:bg-stone-50'}`}
+                  >
+                    Nombre
+                  </button>
+                  <button
+                    onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                    className="px-4 py-3 bg-white text-gray-600 hover:bg-stone-50 transition border-l border-stone-300"
+                    title={sortOrder === 'asc' ? 'Orden ascendente' : 'Orden descendente'}
+                  >
+                    <span className={sortOrder === 'asc' ? 'text-gray-800' : 'text-gray-300'}>↑</span>
+                    <span className={sortOrder === 'desc' ? 'text-gray-800' : 'text-gray-300'}>↓</span>
+                  </button>
+                </div>
+                <div className="flex border border-stone-300 rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => setViewMode('cards')}
+                    className={`px-4 py-3 transition ${viewMode === 'cards' ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 hover:bg-stone-50'}`}
+                  >
+                    ▦ Cards
+                  </button>
+                  <button
+                    onClick={() => setViewMode('table')}
+                    className={`px-4 py-3 transition ${viewMode === 'table' ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 hover:bg-stone-50'}`}
+                  >
+                    ☰ Tabla
+                  </button>
+                </div>
+              </div>
+              {!loadingProjects && filteredAndSortedProjects.length > 0 && (
+                <p className="text-sm text-gray-600">
+                  {filteredAndSortedProjects.length} proyecto{filteredAndSortedProjects.length !== 1 ? 's' : ''} encontrado{filteredAndSortedProjects.length !== 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
+
+            {viewMode === 'cards' ? (
+              <div className="space-y-4">
+                {loadingProjects ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-400"></div>
+                </div>
+              ) : filteredAndSortedProjects.length === 0 ? (
+                  <p className="text-gray-500 text-center py-12">No hay proyectos aún. Crea uno para empezar.</p>
+                ) : (
+                  filteredAndSortedProjects.map((project) => (
+                  <div
+                    key={project.id}
+                    className="w-full bg-white border border-stone-200 rounded-lg p-6 hover:border-stone-400 hover:shadow-md transition"
+                  >
+                    <div className="flex justify-between items-start mb-4">
+                      <button
+                        onClick={() => setSelectedProject(project)}
+                        className="text-left flex-1"
+                      >
+                        <h3 className="text-xl font-semibold mb-2 text-gray-800">{project.name}</h3>
+                        <div className="flex items-center gap-4 text-sm text-gray-500">
+                          {project.wedding_date && (
+                            <span>
+                              {new Date(project.wedding_date).toLocaleDateString('es-ES', { 
+                                year: 'numeric', 
+                                month: 'long', 
+                                day: 'numeric' 
+                              })}
+                            </span>
+                          )}
+                          <span>
+                            Creado: {new Date(project.created_at).toLocaleDateString('es-ES')}
+                          </span>
+                        </div>
+                      </button>
+                      
+                      {/* Selector de editor solo visible para admin */}
+                      {userRole === 'admin' && (
+                        <div className="ml-4 flex items-center gap-2">
+                          <label className="text-sm text-gray-600">Editor:</label>
+                          <select
+                            value={project.assigned_to || ''}
+                            onChange={(e) => assignEditor(project.id, e.target.value || null)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-sm border border-stone-300 rounded px-2 py-1 focus:ring-2 focus:ring-gray-800"
+                          >
+                            <option value="">Sin asignar</option>
+                            {users.map(user => (
+                              <option key={user.email} value={user.email}>{user.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Mostrar editor asignado para todos los usuarios */}
+                    {project.assigned_to && (
+                      <div className="text-xs text-gray-500">
+                        Asignado a: {users.find(u => u.email === project.assigned_to)?.name || project.assigned_to}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg border border-stone-200 overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-gray-900 text-white">
+                    <tr>
+                      <th className="text-left p-4">Proyecto</th>
+                      <th className="text-left p-4">Fecha del Evento</th>
+                      <th className="text-left p-4">Creado</th>
+                      {userRole === 'admin' && <th className="text-left p-4">Editor</th>}
+                      <th className="text-left p-4">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loadingProjects ? (
+                      <tr>
+                        <td colSpan={4} className="py-12">
+                          <div className="flex justify-center items-center">
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-400"></div>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : filteredAndSortedProjects.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="text-gray-500 text-center py-12">No hay proyectos aún. Crea uno para empezar.</td>
+                      </tr>
+                    ) : (
+                      filteredAndSortedProjects.map((project) => (
+                        <tr key={project.id} className="border-b border-stone-200 hover:bg-stone-50 transition">
+                          <td className="p-4">
+                            <span className="font-semibold text-gray-800">{project.name}</span>
+                            {project.assigned_to && userRole !== 'admin' && (
+                              <div className="text-xs text-gray-500 mt-1">
+                                Asignado a: {users.find(u => u.email === project.assigned_to)?.name || project.assigned_to}
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-4 text-gray-600">
+                            {project.wedding_date ? (
+                              new Date(project.wedding_date).toLocaleDateString('es-ES', { 
+                                year: 'numeric', 
+                                month: 'long', 
+                                day: 'numeric' 
+                              })
+                            ) : '-'}
+                          </td>
+                          <td className="p-4 text-gray-500 text-sm">
+                            {new Date(project.created_at).toLocaleDateString('es-ES')}
+                          </td>
+                          {userRole === 'admin' && (
+                            <td className="p-4">
+                              <select
+                                value={project.assigned_to || ''}
+                                onChange={(e) => assignEditor(project.id, e.target.value || null)}
+                                className="text-sm border border-stone-300 rounded px-2 py-1 focus:ring-2 focus:ring-gray-800"
+                              >
+                                <option value="">Sin asignar</option>
+                                {users.map(user => (
+                                  <option key={user.email} value={user.email}>{user.name}</option>
+                                ))}
+                              </select>
+                            </td>
+                          )}
+                          <td className="p-4">
+                            <button
+                              onClick={() => setSelectedProject(project)}
+                              className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded text-sm transition"
+                            >
+                              Abrir
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </main>
+
+        {/* Modal de Crear Proyecto */}
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+              <h3 className="text-2xl font-bold mb-6 text-gray-800">Nuevo Proyecto</h3>
+              <form onSubmit={createProject} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nombre del Proyecto
+                  </label>
+                  <input
+                    type="text"
+                    value={newProjectName}
+                    onChange={(e) => setNewProjectName(e.target.value)}
+                    placeholder="Ej: María & Juan - Boda"
+                    className="w-full px-4 py-3 bg-white border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-700 text-gray-800"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Fecha del Evento
+                  </label>
+                  <input
+                    type="date"
+                    value={newProjectDate}
+                    onChange={(e) => setNewProjectDate(e.target.value)}
+                    className="w-full px-4 py-3 bg-white border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-700 text-gray-800"
+                  />
+                </div>
+                <div className="flex gap-3 justify-end pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCreateModal(false);
+                      setNewProjectName('');
+                      setNewProjectDate('');
+                    }}
+                    className="px-6 py-2 bg-stone-100 hover:bg-stone-200 text-gray-700 rounded-lg font-medium transition"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="px-6 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg font-medium disabled:opacity-50 transition"
+                  >
+                    {loading ? 'Creando...' : 'Crear Proyecto'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -447,37 +806,64 @@ function App() {
   return (
     <div className="min-h-screen bg-stone-50 text-gray-800">
       <header className="bg-white border-b border-stone-200 px-8 py-4 shadow-sm">
-        <div className="flex justify-between items-start">
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-3">
-              <h1 className="text-2xl font-bold text-gray-800">Wedding Video Planner</h1>
-              <button
-                onClick={handleLogout}
-                className="text-sm text-gray-600 hover:text-gray-800 transition"
-              >
-                Cerrar Sesión
-              </button>
-            </div>
-            
+        <div className="flex justify-between items-center">
+          <button
+            onClick={() => setSelectedProject(null)}
+            className="text-sm text-gray-600 hover:text-gray-800 transition font-medium"
+          >
+            ← Volver a Proyectos
+          </button>
+          
+          <h1 className="text-2xl font-bold text-gray-800">Wedding Video Planner</h1>
+          
+          <button
+            onClick={handleLogout}
+            className="text-sm text-gray-600 hover:text-gray-800 transition"
+          >
+            Cerrar Sesión
+          </button>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-8 py-8 max-w-7xl">
+        <div className="space-y-8">
+          {/* Project Info */}
+          <div className="text-center">
             {editingProject ? (
-              <div className="space-y-2">
+              <div className="space-y-3 max-w-2xl mx-auto">
                 <input
                   type="text"
                   value={projectForm.name}
                   onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })}
                   placeholder="Nombres de los novios"
-                  className="w-full px-3 py-2 bg-white border border-stone-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-700"
+                  className="w-full px-4 py-2 bg-white border border-stone-300 rounded-lg text-lg focus:outline-none focus:ring-2 focus:ring-gray-700 text-center"
                 />
                 <input
                   type="date"
                   value={projectForm.wedding_date}
                   onChange={(e) => setProjectForm({ ...projectForm, wedding_date: e.target.value })}
-                  className="w-full px-3 py-2 bg-white border border-stone-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-700"
+                  className="w-full px-4 py-2 bg-white border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-700 text-center"
                 />
-                <div className="flex gap-2">
+                {/* Selector de editor solo visible para admin */}
+                {userRole === 'admin' && (
+                  <div className="flex items-center justify-center gap-3">
+                    <label className="text-gray-700 font-medium">Editor asignado:</label>
+                    <select
+                      value={selectedProject.assigned_to || ''}
+                      onChange={(e) => assignEditor(selectedProject.id, e.target.value || null)}
+                      className="px-4 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-gray-700"
+                    >
+                      <option value="">Sin asignar</option>
+                      {users.map(user => (
+                        <option key={user.email} value={user.email}>{user.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <div className="flex gap-2 justify-center">
                   <button
                     onClick={updateProject}
-                    className="px-4 py-1 bg-gray-800 hover:bg-gray-700 text-white text-sm rounded transition"
+                    className="px-6 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition"
                   >
                     Guardar
                   </button>
@@ -489,7 +875,7 @@ function App() {
                         wedding_date: selectedProject.wedding_date || ''
                       });
                     }}
-                    className="px-4 py-1 bg-stone-100 hover:bg-stone-200 text-gray-700 text-sm rounded transition"
+                    className="px-6 py-2 bg-stone-100 hover:bg-stone-200 text-gray-700 rounded-lg transition"
                   >
                     Cancelar
                   </button>
@@ -497,17 +883,9 @@ function App() {
               </div>
             ) : (
               <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-lg font-semibold text-gray-800">{selectedProject.name}</p>
-                  <button
-                    onClick={() => setEditingProject(true)}
-                    className="text-xs text-gray-500 hover:text-gray-700 transition"
-                  >
-                    ✎ Editar
-                  </button>
-                </div>
+                <h2 className="font-heading text-3xl font-bold text-gray-800 mb-2">{selectedProject.name}</h2>
                 {selectedProject.wedding_date && (
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-lg text-gray-600 mb-3">
                     {new Date(selectedProject.wedding_date).toLocaleDateString('es-ES', { 
                       year: 'numeric', 
                       month: 'long', 
@@ -515,22 +893,25 @@ function App() {
                     })}
                   </p>
                 )}
+                {/* Mostrar editor asignado */}
+                {selectedProject.assigned_to && (
+                  <p className="text-sm text-gray-500 mb-2">
+                    Editor: {users.find(u => u.email === selectedProject.assigned_to)?.name || selectedProject.assigned_to}
+                  </p>
+                )}
+                {userRole === 'admin' && (
+                  <button
+                    onClick={() => setEditingProject(true)}
+                    className="text-sm text-gray-500 hover:text-gray-700 transition"
+                  >
+                    ✎ Editar
+                  </button>
+                )}
               </div>
             )}
           </div>
           
-          <button
-            onClick={() => setSelectedProject(null)}
-            className="text-sm text-gray-600 hover:text-gray-800 transition font-medium"
-          >
-            ← Volver a Proyectos
-          </button>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-8 py-8 max-w-7xl">
-        <div className="space-y-8">
-          {/* Versions Panel - NOW FIRST */}
+          {/* Versions Panel */}
           <div className="w-full bg-white border border-stone-200 rounded-lg p-6 shadow-sm">
             <h2 className="text-xl font-bold mb-6 text-gray-800">Versiones ({versions.length})</h2>
             
@@ -568,9 +949,6 @@ function App() {
                           <option value="Entregado">Entregado</option>
                         </select>
                       </div>
-                      {activeVersion?.id === version.id && (
-                        <span className="text-xs bg-gray-800 text-white px-2 py-1 rounded">Activa</span>
-                      )}
                     </div>
                   </button>
                 ))
@@ -578,6 +956,109 @@ function App() {
             </div>
           </div>
           
+          {/* Suggestions Modal */}
+          {showSuggestions && activeVersion && (() => {
+            const suggestions = getSuggestedScenes();
+            const totalSuggested = suggestions.opening.length + suggestions.anchor.length + suggestions.closing.length;
+            
+            return (
+              <div className="w-full bg-white border border-stone-200 rounded-lg p-6 shadow-sm mb-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="font-heading text-2xl font-bold text-gray-800">
+                    Sugerencias para {activeVersion.name}
+                  </h2>
+                  <button
+                    onClick={() => setShowSuggestions(false)}
+                    className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+                  >
+                    ×
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Introducción */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-lg text-gray-800">Introducción</h3>
+                      <span className="text-xs bg-stone-100 px-2 py-1 rounded">{suggestions.opening.length} escenas</span>
+                    </div>
+                    <div className="space-y-2">
+                      {suggestions.opening.map((scene) => (
+                        <div
+                          key={scene.id}
+                          className="p-3 bg-stone-50 border border-stone-200 rounded-lg hover:bg-stone-100 transition"
+                        >
+                          <div className="text-sm font-medium text-gray-800 mb-1">{scene.name}</div>
+                          <div className="text-xs text-gray-600">{scene.description}</div>
+                          {scene.anchor_description && (
+                            <div className="text-xs text-gray-500 mt-1 italic">● {scene.anchor_description}</div>
+                          )}
+                        </div>
+                      ))}
+                      {suggestions.opening.length === 0 && (
+                        <div className="text-sm text-gray-400 italic">No hay escenas de apertura marcadas como ancla</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Desarrollo */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-lg text-gray-800">Desarrollo</h3>
+                      <span className="text-xs bg-stone-100 px-2 py-1 rounded">{suggestions.anchor.length} escenas</span>
+                    </div>
+                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                      {suggestions.anchor.map((scene) => (
+                        <div
+                          key={scene.id}
+                          className="p-3 bg-stone-50 border border-stone-200 rounded-lg hover:bg-stone-100 transition"
+                        >
+                          <div className="text-sm font-medium text-gray-800 mb-1">{scene.name}</div>
+                          <div className="text-xs text-gray-600">{scene.description}</div>
+                          {scene.anchor_description && (
+                            <div className="text-xs text-gray-500 mt-1 italic">● {scene.anchor_description}</div>
+                          )}
+                        </div>
+                      ))}
+                      {suggestions.anchor.length === 0 && (
+                        <div className="text-sm text-gray-400 italic">No hay escenas de núcleo marcadas como ancla</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Desenlace */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-lg text-gray-800">Desenlace</h3>
+                      <span className="text-xs bg-stone-100 px-2 py-1 rounded">{suggestions.closing.length} escenas</span>
+                    </div>
+                    <div className="space-y-2">
+                      {suggestions.closing.map((scene) => (
+                        <div
+                          key={scene.id}
+                          className="p-3 bg-stone-50 border border-stone-200 rounded-lg hover:bg-stone-100 transition"
+                        >
+                          <div className="text-sm font-medium text-gray-800 mb-1">{scene.name}</div>
+                          <div className="text-xs text-gray-600">{scene.description}</div>
+                          {scene.anchor_description && (
+                            <div className="text-xs text-gray-500 mt-1 italic">● {scene.anchor_description}</div>
+                          )}
+                        </div>
+                      ))}
+                      {suggestions.closing.length === 0 && (
+                        <div className="text-sm text-gray-400 italic">No hay escenas de resolución marcadas como ancla</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-4 border-t border-stone-200 text-sm text-gray-600">
+                  <span className="font-medium">Total sugerido:</span> {totalSuggested} escenas
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Scenes Table */}
           <div className="w-full bg-white border border-stone-200 rounded-lg p-6 shadow-sm">
             <div className="flex items-center justify-between mb-6">
@@ -591,6 +1072,24 @@ function App() {
                 <h2 className="text-xl font-bold text-gray-800">Escenas ({scenes.length})</h2>
               </div>
               <div className="flex gap-2 items-center">
+                {/* Solo mostrar botón de sugerir para versiones Teaser y Highlights */}
+                {activeVersion && !activeVersion.name.toLowerCase().includes('full') && (
+                  <button
+                    onClick={() => {
+                      if (showSuggestions) {
+                        // Si ya está abierto, regenerar sugerencias
+                        setSuggestionKey(prev => prev + 1);
+                      } else {
+                        // Si está cerrado, abrirlo
+                        setShowSuggestions(true);
+                        setSuggestionKey(prev => prev + 1);
+                      }
+                    }}
+                    className="px-3 py-1 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition"
+                  >
+                    {showSuggestions ? 'Regenerar Sugerencias' : 'Sugerir Escenas'}
+                  </button>
+                )}
                 <label className="flex items-center gap-2 px-3 py-1 text-sm text-gray-700 cursor-pointer">
                   <input
                     type="checkbox"

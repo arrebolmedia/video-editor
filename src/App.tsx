@@ -98,6 +98,7 @@ function App() {
   const handleLogout = () => {
     console.log('Logout clicked!');
     localStorage.removeItem('auth');
+    localStorage.removeItem('authVersion');
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userName');
     localStorage.removeItem('userRole');

@@ -38,17 +38,8 @@ export default function Login({ onLogin }: LoginProps) {
 
   return (
     <div 
-      className="min-h-screen flex items-center justify-center p-4 relative"
-      style={{
-        backgroundImage: 'url(https://arrebolweddings.com/images/gallery/TOP-SyP-324-hero.webp)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat'
-      }}
+      className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-stone-800 via-stone-700 to-stone-900 relative"
     >
-      {/* Overlay oscuro para mejor legibilidad */}
-      <div className="absolute inset-0 bg-black bg-opacity-50"></div>
-      
       <div className="max-w-md w-full relative z-10">
         <div className="bg-white rounded-lg shadow-xl border border-stone-200 p-8 backdrop-blur-sm">
           <div className="text-center mb-8">

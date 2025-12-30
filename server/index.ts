@@ -10,6 +10,19 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+// Error handler for JSON parsing
+app.use((err: any, req: any, res: any, next: any) => {
+  if (err instanceof SyntaxError && 'body' in err) {
+    console.error('JSON Parse Error:', {
+      error: err.message,
+      body: req.body,
+      rawBody: err.body
+    });
+    return res.status(400).json({ success: false, error: 'JSON inválido' });
+  }
+  next();
+});
+
 // Disable caching for API responses
 app.use((req, res, next) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -49,21 +62,31 @@ app.get('/api/health', (req, res) => {
 
 // Login endpoint
 app.post('/api/login', (req, res) => {
-  const { email, password } = req.body;
-  
-  const user = memoryDB.users.find((u: any) => u.email === email && u.password === password);
-  
-  if (user) {
-    res.json({
-      success: true,
-      user: {
-        email: user.email,
-        name: user.name,
-        role: user.role
-      }
-    });
-  } else {
-    res.status(401).json({ success: false, error: 'Credenciales incorrectas' });
+  try {
+    console.log('Login request received:', { body: req.body, headers: req.headers });
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({ success: false, error: 'Email y contraseña requeridos' });
+    }
+    
+    const user = memoryDB.users.find((u: any) => u.email === email && u.password === password);
+    
+    if (user) {
+      res.json({
+        success: true,
+        user: {
+          email: user.email,
+          name: user.name,
+          role: user.role
+        }
+      });
+    } else {
+      res.status(401).json({ success: false, error: 'Credenciales incorrectas' });
+    }
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ success: false, error: 'Error del servidor' });
   }
 });
 

@@ -27,13 +27,13 @@ const memoryDB: any = {
   users: [
     {
       email: 'anthony@arrebolweddings.com',
-      password: 'Lalo9513.-',
+      password: process.env.ADMIN_PASSWORD || 'changeme',
       name: 'Anthony Luna',
       role: 'admin'
     },
     {
       email: 'andrey@arrebolweddings.com',
-      password: 'Andrey2025.-',
+      password: process.env.EDITOR_PASSWORD || 'changeme',
       name: 'Andrey Luna',
       role: 'editor'
     }

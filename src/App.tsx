@@ -74,15 +74,56 @@ function App() {
   const [editingProject, setEditingProject] = useState(false);
   const [projectForm, setProjectForm] = useState({ name: '', wedding_date: '' });
   const [compactView, setCompactView] = useState(true);
-  const [showScenesTable, setShowScenesTable] = useState(true);
+  const [showScenesTable, setShowScenesTable] = useState(false);
   const [showSelectedTable, setShowSelectedTable] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'date'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(true);
   const [suggestionKey, setSuggestionKey] = useState(0);
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [draggedSuggestion, setDraggedSuggestion] = useState<Scene | null>(null);
+  const [openingSuggestions, setOpeningSuggestions] = useState<Scene[]>([]);
+  const [anchorOrder, setAnchorOrder] = useState<Scene[]>([]);
+  const [closingSuggestions, setClosingSuggestions] = useState<Scene[]>([]);
+  const [suggestedSongs, setSuggestedSongs] = useState<Array<{title: string, artist: string, mood: string, tempo: string}>>([]);
+  const [suggestionsExpanded, setSuggestionsExpanded] = useState(true);
+  
+  // Lista de canciones para sugerencias
+  const weddingSongs = [
+    { title: 'At Last', artist: 'Etta James', mood: 'classic', tempo: 'slow' },
+    { title: 'L-O-V-E', artist: 'Nat King Cole', mood: 'classic', tempo: 'medium' },
+    { title: 'My Girl', artist: 'The Temptations', mood: 'classic', tempo: 'medium' },
+    { title: 'My Way', artist: 'Frank Sinatra', mood: 'classic', tempo: 'medium' },
+    { title: "That's Life", artist: 'Frank Sinatra', mood: 'classic', tempo: 'medium' },
+    { title: 'I Say a Little Prayer', artist: 'Aretha Franklin', mood: 'classic', tempo: 'medium' },
+    { title: "Can't Take My Eyes off You", artist: 'Frankie Valli', mood: 'romantic', tempo: 'medium' },
+    { title: 'Stand By Me', artist: 'Ben E. King', mood: 'classic', tempo: 'slow' },
+    { title: 'Fly Me To The Moon', artist: 'Frank Sinatra, Count Basie', mood: 'classic', tempo: 'medium' },
+    { title: 'What A Wonderful World', artist: 'Louis Armstrong', mood: 'classic', tempo: 'slow' },
+    { title: "Ain't No Mountain High Enough", artist: 'Marvin Gaye, Tammi Terrell', mood: 'classic', tempo: 'fast' },
+    { title: 'I Just Called To Say I Love You', artist: 'Stevie Wonder', mood: 'romantic', tempo: 'medium' },
+    { title: 'Strangers In The Night', artist: 'Frank Sinatra', mood: 'classic', tempo: 'medium' },
+    { title: 'La Vie En Rose', artist: 'Louis Armstrong And His Orchestra', mood: 'classic', tempo: 'slow' },
+    { title: 'Put Your Head on My Shoulder', artist: 'Paul Anka', mood: 'romantic', tempo: 'slow' },
+    { title: 'In the Mood', artist: 'Glenn Miller', mood: 'classic', tempo: 'fast' },
+    { title: "It's Been A Long, Long Time", artist: 'Harry James', mood: 'classic', tempo: 'medium' },
+    { title: "I Don't Want To Set The World On Fire", artist: 'The Ink Spots', mood: 'classic', tempo: 'slow' },
+    { title: 'Dream A Little Dream Of Me', artist: 'Ella Fitzgerald, Louis Armstrong', mood: 'classic', tempo: 'slow' },
+    { title: "It's A Rather Long Time", artist: 'Kitty Kallen, The Harry James Orchestra', mood: 'classic', tempo: 'medium' },
+    { title: "We'll Meet Again", artist: 'Vera Lynn', mood: 'classic', tempo: 'medium' },
+    { title: 'Unchained Melody', artist: 'The Righteous Brothers', mood: 'romantic', tempo: 'slow' },
+    { title: "That's Amore", artist: 'Dean Martin', mood: 'classic', tempo: 'medium' },
+    { title: 'Orange Colored Sky', artist: 'Nat King Cole', mood: 'classic', tempo: 'fast' },
+    { title: 'Cheek To Cheek', artist: 'Fred Astaire', mood: 'classic', tempo: 'medium' },
+    { title: 'The Way You Look Tonight', artist: 'Tony Bennett', mood: 'romantic', tempo: 'slow' },
+    { title: 'Unforgettable', artist: 'Nat King Cole', mood: 'romantic', tempo: 'slow' },
+    { title: 'Dream A Little Dream Of Me', artist: 'Doris Day', mood: 'classic', tempo: 'slow' },
+    { title: "Can't Help Falling In Love", artist: 'Elvis Presley', mood: 'romantic', tempo: 'slow' },
+    { title: 'A Summer Place', artist: 'Andy Williams', mood: 'romantic', tempo: 'slow' },
+    { title: 'More (Theme From Mondo Cane)', artist: 'Frank Sinatra, Count Basie', mood: 'classic', tempo: 'medium' }
+  ];
   const handleLogin = (email: string, name: string, role: string) => {
     localStorage.setItem('auth', 'true');
     localStorage.setItem('authVersion', '2');
@@ -128,6 +169,17 @@ function App() {
       });
     }
   }, [selectedProject]);
+
+  // Actualizar todas las sugerencias solo cuando se regeneran o se abre el modal
+  useEffect(() => {
+    if (showSuggestions && activeVersion && scenes.length > 0) {
+      const suggestions = getSuggestedScenes();
+      setOpeningSuggestions(suggestions.opening);
+      setAnchorOrder(suggestions.anchor);
+      setClosingSuggestions(suggestions.closing);
+      setSuggestedSongs(getSuggestedSongs());
+    }
+  }, [suggestionKey, showSuggestions, activeVersion]);
 
   const fetchProjects = async () => {
     try {
@@ -483,6 +535,35 @@ function App() {
 
   const getTotalDuration = (sceneGroup: Scene[]) => {
     return sceneGroup.reduce((sum, s) => sum + s.planned_duration, 0);
+  };
+
+  const getSuggestedSongs = () => {
+    if (!activeVersion) return [];
+
+    const shuffle = <T,>(array: T[]): T[] => {
+      const shuffled = [...array];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled;
+    };
+
+    const versionName = activeVersion.name.toLowerCase();
+    
+    // Todas las canciones mezcladas
+    const allSongs = shuffle(weddingSongs);
+
+    // Determinar cantidad según la versión
+    let songCount = 0;
+    
+    if (versionName.includes('teaser')) {
+      songCount = 1;
+    } else if (versionName.includes('highlights')) {
+      songCount = 3;
+    }
+
+    return allSongs.slice(0, songCount);
   };
 
   // Filter and sort projects
@@ -914,7 +995,32 @@ function App() {
           
           {/* Versions Panel */}
           <div className="w-full bg-white border border-stone-200 rounded-lg p-6 shadow-sm">
-            <h2 className="text-xl font-bold mb-6 text-gray-800">Versiones ({versions.length})</h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-800">Versiones ({versions.length})</h2>
+              {scenes.length === 0 && (
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(`${API_BASE}/projects/${selectedProject.id}/initialize-scenes`, {
+                        method: 'POST',
+                      });
+                      const data = await res.json();
+                      if (data.success) {
+                        alert(`✅ ${data.message}\nEscenas agregadas: ${data.scenes}`);
+                        fetchScenes(selectedProject.id);
+                        fetchVersions(selectedProject.id);
+                      }
+                    } catch (error) {
+                      alert('Error al inicializar escenas');
+                      console.error(error);
+                    }
+                  }}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition"
+                >
+                  + Agregar Escenas
+                </button>
+              )}
+            </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {versions.length === 0 ? (
@@ -959,32 +1065,41 @@ function App() {
           
           {/* Suggestions Modal */}
           {showSuggestions && activeVersion && (() => {
-            const suggestions = getSuggestedScenes();
-            const totalSuggested = suggestions.opening.length + suggestions.anchor.length + suggestions.closing.length;
+            const totalSuggested = openingSuggestions.length + anchorOrder.length + closingSuggestions.length;
             
             return (
               <div className="w-full bg-white border border-stone-200 rounded-lg p-6 shadow-sm mb-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="font-heading text-2xl font-bold text-gray-800">
-                    Sugerencias para {activeVersion.name}
-                  </h2>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setSuggestionsExpanded(!suggestionsExpanded)}
+                      className="text-gray-400 hover:text-gray-600 transition text-lg leading-none"
+                    >
+                      {suggestionsExpanded ? '−' : '+'}
+                    </button>
+                    <h2 className="font-heading text-2xl font-bold text-gray-800">
+                      Sugerencias para {activeVersion.name}
+                    </h2>
+                  </div>
                   <button
-                    onClick={() => setShowSuggestions(false)}
-                    className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+                    onClick={() => setSuggestionKey(prev => prev + 1)}
+                    className="px-3 py-1 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition"
                   >
-                    ×
+                    Regenerar Sugerencias
                   </button>
                 </div>
                 
+                {suggestionsExpanded && (
+                <>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {/* Introducción */}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold text-lg text-gray-800">Introducción</h3>
-                      <span className="text-xs bg-stone-100 px-2 py-1 rounded">{suggestions.opening.length} escenas</span>
+                      <span className="text-xs bg-stone-100 px-2 py-1 rounded">{openingSuggestions.length} escenas</span>
                     </div>
                     <div className="space-y-2">
-                      {suggestions.opening.map((scene) => (
+                      {openingSuggestions.map((scene) => (
                         <div
                           key={scene.id}
                           className="p-3 bg-stone-50 border border-stone-200 rounded-lg hover:bg-stone-100 transition"
@@ -996,7 +1111,7 @@ function App() {
                           )}
                         </div>
                       ))}
-                      {suggestions.opening.length === 0 && (
+                      {openingSuggestions.length === 0 && (
                         <div className="text-sm text-gray-400 italic">No hay escenas de apertura marcadas como ancla</div>
                       )}
                     </div>
@@ -1006,22 +1121,55 @@ function App() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold text-lg text-gray-800">Desarrollo</h3>
-                      <span className="text-xs bg-stone-100 px-2 py-1 rounded">{suggestions.anchor.length} escenas</span>
+                      <span className="text-xs bg-stone-100 px-2 py-1 rounded">{anchorOrder.length} escenas</span>
                     </div>
                     <div className="space-y-2 max-h-96 overflow-y-auto">
-                      {suggestions.anchor.map((scene) => (
+                      {anchorOrder.map((scene, index) => (
                         <div
                           key={scene.id}
-                          className="p-3 bg-stone-50 border border-stone-200 rounded-lg hover:bg-stone-100 transition"
+                          draggable="true"
+                          onDragStart={(e) => {
+                            setDraggedSuggestion(scene);
+                            e.dataTransfer.effectAllowed = 'move';
+                            e.dataTransfer.setData('text/plain', scene.id.toString());
+                          }}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            e.dataTransfer.dropEffect = 'move';
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!draggedSuggestion || draggedSuggestion.id === scene.id) return;
+                            const newOrder = [...anchorOrder];
+                            const draggedIdx = newOrder.findIndex(s => s.id === draggedSuggestion.id);
+                            const targetIdx = index;
+                            if (draggedIdx === -1 || targetIdx === -1) return;
+                            newOrder.splice(draggedIdx, 1);
+                            newOrder.splice(targetIdx, 0, draggedSuggestion);
+                            setAnchorOrder(newOrder);
+                          }}
+                          onDragEnd={() => setDraggedSuggestion(null)}
+                          className={`p-3 border rounded-lg transition cursor-move select-none ${
+                            draggedSuggestion?.id === scene.id 
+                              ? 'opacity-50 bg-blue-50 border-blue-300' 
+                              : 'bg-stone-50 border-stone-200 hover:bg-stone-100'
+                          }`}
                         >
-                          <div className="text-sm font-medium text-gray-800 mb-1">{scene.name}</div>
-                          <div className="text-xs text-gray-600">{scene.description}</div>
-                          {scene.anchor_description && (
-                            <div className="text-xs text-gray-500 mt-1 italic">● {scene.anchor_description}</div>
-                          )}
+                          <div className="flex items-start gap-2">
+                            <span className="font-mono text-gray-400 text-xs mt-0.5">{index + 1}.</span>
+                            <div className="flex-1">
+                              <div className="text-sm font-medium text-gray-800 mb-1">{scene.name}</div>
+                              <div className="text-xs text-gray-600">{scene.description}</div>
+                              {scene.anchor_description && (
+                                <div className="text-xs text-gray-500 mt-1 italic">● {scene.anchor_description}</div>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       ))}
-                      {suggestions.anchor.length === 0 && (
+                      {anchorOrder.length === 0 && (
                         <div className="text-sm text-gray-400 italic">No hay escenas de núcleo marcadas como ancla</div>
                       )}
                     </div>
@@ -1031,10 +1179,10 @@ function App() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold text-lg text-gray-800">Desenlace</h3>
-                      <span className="text-xs bg-stone-100 px-2 py-1 rounded">{suggestions.closing.length} escenas</span>
+                      <span className="text-xs bg-stone-100 px-2 py-1 rounded">{closingSuggestions.length} escenas</span>
                     </div>
                     <div className="space-y-2">
-                      {suggestions.closing.map((scene) => (
+                      {closingSuggestions.map((scene) => (
                         <div
                           key={scene.id}
                           className="p-3 bg-stone-50 border border-stone-200 rounded-lg hover:bg-stone-100 transition"
@@ -1046,7 +1194,7 @@ function App() {
                           )}
                         </div>
                       ))}
-                      {suggestions.closing.length === 0 && (
+                      {closingSuggestions.length === 0 && (
                         <div className="text-sm text-gray-400 italic">No hay escenas de resolución marcadas como ancla</div>
                       )}
                     </div>
@@ -1056,6 +1204,26 @@ function App() {
                 <div className="mt-6 pt-4 border-t border-stone-200 text-sm text-gray-600">
                   <span className="font-medium">Total sugerido:</span> {totalSuggested} escenas
                 </div>
+                
+                {/* Sugerencias de Canciones */}
+                {suggestedSongs.length > 0 && (
+                  <div className="mt-8 pt-6 border-t border-stone-200">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-semibold text-xl text-gray-800">Sugerencias de Canciones</h3>
+                      <span className="text-xs bg-purple-100 px-2 py-1 rounded">{suggestedSongs.length} {suggestedSongs.length === 1 ? 'canción' : 'canciones'}</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {suggestedSongs.map((song, idx) => (
+                          <div key={idx} className="p-3 bg-stone-50 border border-stone-200 rounded-lg hover:bg-stone-100 transition">
+                            <div className="text-sm font-medium text-gray-800 mb-1">{song.title}</div>
+                            <div className="text-xs text-gray-600">{song.artist}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                )}
+                </>
+              )}
               </div>
             );
           })()}
@@ -1073,24 +1241,6 @@ function App() {
                 <h2 className="text-xl font-bold text-gray-800">Escenas ({scenes.length})</h2>
               </div>
               <div className="flex gap-2 items-center">
-                {/* Solo mostrar botón de sugerir para versiones Teaser y Highlights */}
-                {activeVersion && !activeVersion.name.toLowerCase().includes('full') && (
-                  <button
-                    onClick={() => {
-                      if (showSuggestions) {
-                        // Si ya está abierto, regenerar sugerencias
-                        setSuggestionKey(prev => prev + 1);
-                      } else {
-                        // Si está cerrado, abrirlo
-                        setShowSuggestions(true);
-                        setSuggestionKey(prev => prev + 1);
-                      }
-                    }}
-                    className="px-3 py-1 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition"
-                  >
-                    {showSuggestions ? 'Regenerar Sugerencias' : 'Sugerir Escenas'}
-                  </button>
-                )}
                 <label className="flex items-center gap-2 px-3 py-1 text-sm text-gray-700 cursor-pointer">
                   <input
                     type="checkbox"
@@ -1288,22 +1438,33 @@ function App() {
                         return (
                           <div 
                             key={scene.id} 
-                            draggable
-                            onDragStart={() => setDraggedScene(scene)}
+                            draggable="true"
+                            onDragStart={(e) => {
+                              setDraggedScene(scene);
+                              e.dataTransfer.effectAllowed = 'move';
+                              e.dataTransfer.setData('text/plain', scene.id.toString());
+                            }}
                             onDragOver={(e) => {
                               e.preventDefault();
+                              e.stopPropagation();
+                              e.dataTransfer.dropEffect = 'move';
+                            }}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
                               if (!draggedScene || draggedScene.id === scene.id) return;
                               const newOrder = [...selectedScenes];
                               const draggedIdx = newOrder.indexOf(draggedScene.id);
                               const targetIdx = newOrder.indexOf(scene.id);
+                              if (draggedIdx === -1 || targetIdx === -1) return;
                               newOrder.splice(draggedIdx, 1);
                               newOrder.splice(targetIdx, 0, draggedScene.id);
                               setSelectedScenes(newOrder);
                               if (activeVersion) saveVersionScenes(activeVersion.id, newOrder);
                             }}
                             onDragEnd={() => setDraggedScene(null)}
-                            className={`px-3 py-2 bg-white rounded border border-stone-200 text-sm text-gray-700 cursor-move hover:border-gray-400 transition ${
-                              draggedScene?.id === scene.id ? 'opacity-50' : ''
+                            className={`px-3 py-2 bg-white rounded border border-stone-200 text-sm text-gray-700 cursor-move hover:border-gray-400 transition select-none ${
+                              draggedScene?.id === scene.id ? 'opacity-50 bg-blue-50 border-blue-300' : ''
                             }`}
                           >
                             <span className="font-mono text-gray-400 text-xs mr-2">{index + 1}.</span>
@@ -1330,8 +1491,15 @@ function App() {
                             <tr 
                               key={scene.id} 
                               draggable
-                              onDragStart={() => setDraggedScene(scene)}
+                              onDragStart={(e) => {
+                                setDraggedScene(scene);
+                                e.dataTransfer.effectAllowed = 'move';
+                              }}
                               onDragOver={(e) => {
+                                e.preventDefault();
+                                e.dataTransfer.dropEffect = 'move';
+                              }}
+                              onDrop={(e) => {
                                 e.preventDefault();
                                 if (!draggedScene || draggedScene.id === scene.id) return;
                                 const newOrder = [...selectedScenes];
@@ -1343,7 +1511,7 @@ function App() {
                                 if (activeVersion) saveVersionScenes(activeVersion.id, newOrder);
                               }}
                               onDragEnd={() => setDraggedScene(null)}
-                              className={`border-b border-stone-200 hover:bg-white transition cursor-move ${
+                              className={`border-b border-stone-200 hover:bg-white transition cursor-move select-none ${
                                 draggedScene?.id === scene.id ? 'opacity-50' : ''
                               }`}
                             >

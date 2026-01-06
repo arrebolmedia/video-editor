@@ -41,7 +41,7 @@ const memoryDB: any = {
     {
       email: 'anthony@arrebolweddings.com',
       password: process.env.ADMIN_PASSWORD || 'changeme',
-      name: 'Anthony Luna',
+      name: 'Anthony Cazares',
       role: 'admin'
     },
     {
@@ -92,7 +92,7 @@ app.post('/api/login', (req, res) => {
 
 // Get users (editors only)
 app.get('/api/users', (req, res) => {
-  const editors = memoryDB.users.filter((u: any) => u.role === 'editor').map((u: any) => ({
+  const editors = memoryDB.users.filter((u: any) => u.role === 'editor' || u.role === 'admin').map((u: any) => ({
     email: u.email,
     name: u.name
   }));
@@ -969,6 +969,95 @@ app.post('/api/sync/past-weddings', async (req, res) => {
   } catch (error: any) {
     console.error('Error syncing past weddings:', error);
     res.status(500).json({ error: 'Error syncing past weddings', message: error.message });
+  }
+});
+
+// Endpoint para agregar escenas por defecto a un proyecto que no las tenga
+app.post('/api/projects/:projectId/initialize-scenes', async (req, res) => {
+  try {
+    const projectId = parseInt(req.params.projectId);
+    
+    if (useMemoryStorage) {
+      // Verificar si el proyecto ya tiene escenas
+      const existingScenes = memoryDB.scenes.filter((s: any) => s.project_id === projectId);
+      
+      if (existingScenes.length > 0) {
+        return res.json({ success: true, message: 'El proyecto ya tiene escenas', scenes: existingScenes.length });
+      }
+      
+      // Agregar escenas por defecto
+      const sceneIds: number[] = [];
+      defaultWeddingScenes.forEach((sceneData, index) => {
+        const sceneId = nextId++;
+        sceneIds.push(sceneId);
+        memoryDB.scenes.push({
+          id: sceneId,
+          project_id: projectId,
+          scene_order: index,
+          ...sceneData,
+          created_at: new Date().toISOString()
+        });
+      });
+      
+      // Verificar si el proyecto tiene versiones, si no, crearlas
+      const existingVersions = memoryDB.versions.filter((v: any) => v.project_id === projectId);
+      
+      if (existingVersions.length === 0) {
+        const versions = [
+          { name: 'Teaser', type: 'short', target_duration_min: 55, target_duration_max: 65 },
+          { name: 'Highlights', type: 'medium', target_duration_min: 180, target_duration_max: 300 },
+          { name: 'Full', type: 'long', target_duration_min: 1800, target_duration_max: 3600 }
+        ];
+        
+        versions.forEach(versionData => {
+          const versionId = nextId++;
+          memoryDB.versions.push({
+            id: versionId,
+            project_id: projectId,
+            ...versionData,
+            actual_duration: 0,
+            created_at: new Date().toISOString()
+          });
+          
+          // Para la versión Full, agregar todas las escenas
+          if (versionData.type === 'long') {
+            sceneIds.forEach((sceneId, idx) => {
+              memoryDB.sceneRefs.push({
+                id: nextId++,
+                version_id: versionId,
+                scene_id: sceneId,
+                included: true,
+                ref_order: idx
+              });
+            });
+          }
+        });
+      }
+      
+      res.json({ success: true, scenes: sceneIds.length, message: 'Escenas y versiones inicializadas' });
+    } else {
+      // PostgreSQL - similar lógica
+      const existing = await pool.query('SELECT COUNT(*) FROM scenes WHERE project_id = $1', [projectId]);
+      
+      if (parseInt(existing.rows[0].count) > 0) {
+        return res.json({ success: true, message: 'El proyecto ya tiene escenas', scenes: existing.rows[0].count });
+      }
+      
+      const sceneIds: number[] = [];
+      for (let i = 0; i < defaultWeddingScenes.length; i++) {
+        const sceneData = defaultWeddingScenes[i];
+        const result = await pool.query(
+          'INSERT INTO scenes (project_id, name, division, description, planned_duration, is_anchor_moment, anchor_description, priority, scene_order) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id',
+          [projectId, sceneData.name, sceneData.division, sceneData.description, sceneData.planned_duration, sceneData.is_anchor_moment, sceneData.anchor_description, sceneData.priority, i]
+        );
+        sceneIds.push(result.rows[0].id);
+      }
+      
+      res.json({ success: true, scenes: sceneIds.length });
+    }
+  } catch (error) {
+    console.error('Error initializing scenes:', error);
+    res.status(500).json({ error: 'Error initializing scenes' });
   }
 });
 

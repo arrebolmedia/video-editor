@@ -29,7 +29,7 @@ services:
       - traefik-public
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.wedding-frontend.rule=Host(\rrebolweddings.com\) && PathPrefix(\/editor\)"
+      - "traefik.http.routers.wedding-frontend.rule=Host(`arrebolweddings.com`) && PathPrefix(`/editor`)"
       - "traefik.http.routers.wedding-frontend.entrypoints=https"
       - "traefik.http.routers.wedding-frontend.tls=true"
       - "traefik.http.routers.wedding-frontend.tls.certresolver=le"
@@ -61,13 +61,15 @@ services:
         condition: service_healthy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.wedding-api.rule=Host(\rrebolweddings.com\) && PathPrefix(\/editor-api\)"
+      - "traefik.http.routers.wedding-api.rule=Host(`arrebolweddings.com`) && PathPrefix(`/editor-api`)"
       - "traefik.http.routers.wedding-api.entrypoints=https"
       - "traefik.http.routers.wedding-api.tls=true"
       - "traefik.http.routers.wedding-api.tls.certresolver=le"
       - "traefik.http.routers.wedding-api.priority=100"
-      - "traefik.http.routers.wedding-api.middlewares=wedding-api-strip"
+      - "traefik.http.routers.wedding-api.middlewares=wedding-api-chain"
       - "traefik.http.middlewares.wedding-api-strip.stripprefix.prefixes=/editor-api"
+      - "traefik.http.middlewares.wedding-api-add.addprefix.prefix=/api"
+      - "traefik.http.middlewares.wedding-api-chain.chain.middlewares=wedding-api-strip,wedding-api-add"
       - "traefik.http.services.wedding-api.loadbalancer.server.port=3002"
 
 networks:

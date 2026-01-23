@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '../hooks/useToast';
+import { generateReceiptPDF } from '../utils/receiptPDFGenerator';
 
 interface Recibo {
   id: number;
@@ -12,6 +13,8 @@ interface Recibo {
   payment_date: string;
   concept: string;
   notes?: string;
+  venue?: string;
+  event_date?: string;
   created_at: string;
 }
 
@@ -22,6 +25,8 @@ interface Contrato {
   total_amount: number;
   deposit_amount: number;
   wedding_date: string;
+  venue?: string;
+  package_type?: string;
 }
 
 const API_BASE = '/api';
@@ -37,7 +42,7 @@ export default function RecibosModule() {
   const [currentRecibo, setCurrentRecibo] = useState<Partial<Recibo>>({
     payment_method: 'Transferencia',
     payment_date: new Date().toISOString().split('T')[0],
-    concept: 'Anticipo',
+    concept: 'Anticipo - Servicio de fotografía y video',
   });
   const [loading, setLoading] = useState(false);
 
@@ -60,7 +65,11 @@ export default function RecibosModule() {
     try {
       const response = await fetch(`${API_BASE}/recibos`);
       const data = await response.json();
-      setRecibos(data);
+      // Ordenar por fecha de creación más reciente primero
+      const sorted = data.sort((a: Recibo, b: Recibo) => {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+      setRecibos(sorted);
     } catch (error) {
       console.error('Error fetching recibos:', error);
     }
@@ -89,7 +98,7 @@ export default function RecibosModule() {
     setCurrentRecibo({
       payment_method: 'Transferencia',
       payment_date: new Date().toISOString().split('T')[0],
-      concept: 'Anticipo',
+      concept: 'Anticipo - Servicio de fotografía y video',
       receipt_number: generateReceiptNumber(),
     });
     setIsModalOpen(true);
@@ -109,12 +118,19 @@ export default function RecibosModule() {
 
     const contrato = contratos.find((c) => c.id === parseInt(contratoId));
     if (contrato) {
+      // Generar concepto descriptivo basado en el paquete
+      const packageDesc = contrato.package_type || 'Paquete';
+      const conceptoSugerido = `Anticipo - ${packageDesc} - Servicio de fotografía y video`;
+      
       setCurrentRecibo({
         ...currentRecibo,
         contrato_id: contrato.id,
         client_name: contrato.client_name,
         client_email: contrato.client_email,
         amount: contrato.deposit_amount,
+        venue: contrato.venue || '',
+        event_date: contrato.wedding_date || '',
+        concept: conceptoSugerido,
       });
     }
   };
@@ -143,7 +159,7 @@ export default function RecibosModule() {
         setCurrentRecibo({
           payment_method: 'Transferencia',
           payment_date: new Date().toISOString().split('T')[0],
-          concept: 'Anticipo',
+          concept: 'Anticipo - Servicio de fotografía y video',
         });
         toast.success(isEditing ? 'Recibo actualizado exitosamente' : 'Recibo creado exitosamente');
       } else {
@@ -177,23 +193,22 @@ export default function RecibosModule() {
 
   const handleDownloadPDF = async (recibo: Recibo) => {
     try {
-      const response = await fetch(`${API_BASE}/recibos/${recibo.id}/pdf`);
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${recibo.receipt_number}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      } else {
-        toast.error('Error al generar PDF');
-      }
+      generateReceiptPDF({
+        receipt_number: recibo.receipt_number,
+        client_name: recibo.client_name,
+        client_email: recibo.client_email,
+        amount: recibo.amount,
+        payment_method: recibo.payment_method,
+        payment_date: recibo.payment_date,
+        concept: recibo.concept,
+        notes: recibo.notes,
+        venue: recibo.venue,
+        event_date: recibo.event_date,
+      });
+      toast.success('PDF generado exitosamente');
     } catch (error) {
-      console.error('Error downloading PDF:', error);
-      toast.error('Error al descargar PDF');
+      console.error('Error generating PDF:', error);
+      toast.error('Error al generar PDF');
     }
   };
 
@@ -277,7 +292,11 @@ export default function RecibosModule() {
                         day: 'numeric',
                       })}
                     </td>
-                    <td className="p-4 text-gray-600">{recibo.concept}</td>
+                    <td className="p-4 text-gray-600 max-w-xs">
+                      <div className="line-clamp-2 text-sm" title={recibo.concept}>
+                        {recibo.concept}
+                      </div>
+                    </td>
                     <td className="p-4 text-gray-600">{recibo.payment_method}</td>
                     <td className="p-4 font-semibold text-gray-800">
                       {formatCurrency(recibo.amount)}
@@ -416,6 +435,37 @@ export default function RecibosModule() {
                 </div>
               </div>
 
+              {/* Venue y Fecha del Evento */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Venue del Evento
+                  </label>
+                  <input
+                    type="text"
+                    value={currentRecibo.venue || ''}
+                    onChange={(e) =>
+                      setCurrentRecibo({ ...currentRecibo, venue: e.target.value })
+                    }
+                    placeholder="Ej: Hacienda Santa Rosa"
+                    className="w-full px-4 py-3 bg-white border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-700"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Fecha del Evento
+                  </label>
+                  <input
+                    type="date"
+                    value={currentRecibo.event_date || ''}
+                    onChange={(e) =>
+                      setCurrentRecibo({ ...currentRecibo, event_date: e.target.value })
+                    }
+                    className="w-full px-4 py-3 bg-white border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-700"
+                  />
+                </div>
+              </div>
+
               {/* Payment Details */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
@@ -469,20 +519,20 @@ export default function RecibosModule() {
               {/* Concept */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Concepto
+                  Concepto *
                 </label>
-                <select
-                  value={currentRecibo.concept || 'Anticipo'}
+                <textarea
+                  value={currentRecibo.concept || ''}
                   onChange={(e) =>
                     setCurrentRecibo({ ...currentRecibo, concept: e.target.value })
                   }
+                  placeholder="Ej: Anticipo - Colección Uno - Servicio de fotografía y video"
+                  rows={2}
                   className="w-full px-4 py-3 bg-white border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-700"
-                >
-                  <option value="Anticipo">Anticipo</option>
-                  <option value="Pago Final">Pago Final</option>
-                  <option value="Pago Parcial">Pago Parcial</option>
-                  <option value="Otro">Otro</option>
-                </select>
+                ></textarea>
+                <p className="text-xs text-gray-500 mt-1">
+                  Describe el tipo de pago y servicio (Anticipo, Pago Final, etc.)
+                </p>
               </div>
 
               {/* Notes */}

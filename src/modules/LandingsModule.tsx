@@ -22,11 +22,14 @@ export default function LandingsModule() {
   const [landings, setLandings] = useState<Landing[]>([]);
   const [filteredLandings, setFilteredLandings] = useState<Landing[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState<string>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
   const [showImagePicker, setShowImagePicker] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [slugValidating, setSlugValidating] = useState(false);
+  const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
   const [currentLanding, setCurrentLanding] = useState<Partial<Landing>>({
     landing_type: 'client',
     adjustment_type: 'none',
@@ -60,14 +63,25 @@ export default function LandingsModule() {
   }, []);
 
   useEffect(() => {
-    const filtered = landings.filter(
-      (l) =>
-        l.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        l.subtitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        l.slug.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    let filtered = landings;
+
+    // Filter by search term
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (l) =>
+          l.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          l.subtitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          l.slug.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Filter by type
+    if (filterType !== 'all') {
+      filtered = filtered.filter((l) => l.landing_type === filterType);
+    }
+
     setFilteredLandings(filtered);
-  }, [searchTerm, landings]);
+  }, [searchTerm, filterType, landings]);
 
   const fetchLandings = async () => {
     try {
@@ -77,6 +91,29 @@ export default function LandingsModule() {
     } catch (error) {
       console.error('Error fetching landings:', error);
       alert('Error al cargar landings');
+    }
+  };
+
+  const checkSlugAvailability = async (slug: string, excludeId?: number) => {
+    if (!slug) {
+      setSlugAvailable(null);
+      return;
+    }
+    
+    setSlugValidating(true);
+    try {
+      const url = excludeId 
+        ? `${API.landings}/check-slug/${encodeURIComponent(slug)}?excludeId=${excludeId}`
+        : `${API.landings}/check-slug/${encodeURIComponent(slug)}`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      setSlugAvailable(data.available);
+    } catch (error) {
+      console.error('Error checking slug:', error);
+      setSlugAvailable(null);
+    } finally {
+      setSlugValidating(false);
     }
   };
 
@@ -103,6 +140,12 @@ export default function LandingsModule() {
   const handleSave = async () => {
     if (!currentLanding.title || !currentLanding.subtitle || !currentLanding.slug || !currentLanding.hero_image) {
       toast.warning('Por favor completa todos los campos requeridos');
+      return;
+    }
+
+    // Check if slug is unavailable
+    if (slugAvailable === false) {
+      toast.error('El slug que ingresaste ya existe. Por favor usa otro.');
       return;
     }
 
@@ -166,8 +209,8 @@ export default function LandingsModule() {
     }
   };
 
-  const handlePreview = async () => {
-    if (!currentLanding.title || !currentLanding.subtitle || !currentLanding.slug || !currentLanding.hero_image) {
+  const handlePreview = async (landing: Landing) => {
+    if (!landing.title || !landing.subtitle || !landing.slug || !landing.hero_image) {
       toast.warning('Por favor completa todos los campos requeridos antes de ver el preview');
       return;
     }
@@ -176,7 +219,7 @@ export default function LandingsModule() {
       const response = await fetch(API.landingsPreview, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(currentLanding),
+        body: JSON.stringify(landing),
       });
 
       if (!response.ok) {
@@ -305,15 +348,24 @@ export default function LandingsModule() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="mb-6">
+      {/* Search and Filters */}
+      <div className="mb-6 flex gap-4">
         <input
           type="text"
           placeholder="Buscar por título, subtítulo o slug..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full px-4 py-3 bg-white text-[#2B2B2B] rounded border border-[#E8E3DD] focus:border-[#C67B5C] focus:outline-none"
+          className="flex-1 px-4 py-3 bg-white text-[#2B2B2B] rounded border border-[#E8E3DD] focus:border-[#C67B5C] focus:outline-none"
         />
+        <select
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value)}
+          className="px-4 py-3 bg-white text-[#2B2B2B] rounded border border-[#E8E3DD] focus:border-[#C67B5C] focus:outline-none"
+        >
+          <option value="all">Todos los tipos</option>
+          <option value="client">Clientes</option>
+          <option value="planner">Planners</option>
+        </select>
       </div>
 
       {/* Grid */}
@@ -362,13 +414,9 @@ export default function LandingsModule() {
               <div className="space-y-2 mt-4">
                 <div className="grid grid-cols-2 gap-2">
                   <button
-                    onClick={() => {
-                      const url = `http://localhost:3000/${landing.slug}`;
-                      window.open(url, '_blank');
-                    }}
+                    onClick={() => handlePreview(landing)}
                     className="px-3 py-2 bg-[#8B5A6F] text-white rounded hover:bg-[#8B5A6F]/90 transition-colors text-sm text-center flex items-center justify-center gap-1"
                   >
-                    <span>👁️</span>
                     <span>Preview</span>
                   </button>
                   <button
@@ -484,14 +532,74 @@ export default function LandingsModule() {
                 <label className="block text-sm font-medium text-[#2B2B2B] mb-2">
                   Slug (URL) *
                 </label>
-                <input
-                  type="text"
-                  value={currentLanding.slug || ''}
-                  onChange={(e) => setCurrentLanding({ ...currentLanding, slug: e.target.value })}
-                  className="w-full px-4 py-2 bg-white text-[#2B2B2B] rounded border border-[#E8E3DD] focus:border-[#C67B5C] focus:outline-none font-mono"
-                  placeholder="colecciones-nombre"
-                />
+                <div className="flex gap-2">
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      value={currentLanding.slug || ''}
+                      onChange={(e) => {
+                        const newSlug = e.target.value;
+                        setCurrentLanding({ ...currentLanding, slug: newSlug });
+                        setSlugAvailable(null);
+                        // Debounce slug check
+                        if (newSlug) {
+                          setTimeout(() => {
+                            if (newSlug === currentLanding.slug) {
+                              checkSlugAvailability(newSlug, currentLanding.id);
+                            }
+                          }, 500);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (currentLanding.slug) {
+                          checkSlugAvailability(currentLanding.slug, currentLanding.id);
+                        }
+                      }}
+                      className={`w-full px-4 py-2 bg-white text-[#2B2B2B] rounded border focus:outline-none font-mono pr-8 ${
+                        slugValidating ? 'border-blue-400' : 
+                        slugAvailable === true ? 'border-green-500' : 
+                        slugAvailable === false ? 'border-red-500' : 
+                        'border-[#E8E3DD] focus:border-[#C67B5C]'
+                      }`}
+                      placeholder="colecciones-nombre"
+                    />
+                    {slugValidating && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-[#C67B5C] border-t-transparent"></div>
+                      </div>
+                    )}
+                    {!slugValidating && slugAvailable === true && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 font-bold">✓</div>
+                    )}
+                    {!slugValidating && slugAvailable === false && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-red-500 font-bold">✗</div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (currentLanding.title) {
+                        const newSlug = autoGenerateSlug(currentLanding.title);
+                        setCurrentLanding({ ...currentLanding, slug: newSlug });
+                        setSlugAvailable(null);
+                        checkSlugAvailability(newSlug, currentLanding.id);
+                      }
+                    }}
+                    className="px-4 py-2 bg-[#E8E3DD] text-[#2B2B2B] rounded hover:bg-[#C67B5C] hover:text-white transition-colors flex items-center gap-1"
+                    title="Regenerar slug desde título"
+                  >
+                    🔄
+                  </button>
+                </div>
                 <p className="text-xs text-[#2B2B2B]/60 mt-1">Se generará automáticamente del título si lo dejas vacío</p>
+                {currentLanding.slug && (
+                  <p className="text-xs text-[#C67B5C] mt-1 font-mono">
+                    → https://arrebol.mx/{currentLanding.slug}
+                  </p>
+                )}
+                {slugAvailable === false && (
+                  <p className="text-xs text-red-500 mt-1">⚠ Este slug ya existe, por favor usa otro</p>
+                )}
               </div>
 
               {/* Hero Image */}

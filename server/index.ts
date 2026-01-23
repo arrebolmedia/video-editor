@@ -41,27 +41,36 @@ const memoryDB: any = {
   sceneRefs: [],
   contratos: [],
   recibos: [],
+  previewData: {}, // Para almacenar datos temporales de preview
   landings: [
     // PLANNERS & VENUES
     { id: 1, slug: 'colecciones-karen-roberto', title: 'Karen & Roberto', subtitle: 'Las Mañanitas, Cuernavaca', hero_image: '/images/gallery/TOP-PyP-505.webp', landing_type: 'planner', adjustment_type: 'none', adjustment_value: 0, show_badge: false, badge_text: '', created_at: new Date(), updated_at: new Date() },
     { id: 2, slug: 'colecciones-alejandra-salgado', title: 'Alejandra Salgado', subtitle: 'Los Hilos, San Miguel de Allende', hero_image: '/images/gallery/TOP-PyP-505.webp', landing_type: 'planner', adjustment_type: 'fixed', adjustment_value: 30000, show_badge: false, badge_text: '', created_at: new Date(), updated_at: new Date() },
-    { id: 3, slug: 'colecciones-valeria-meza', title: 'Valeria Meza', subtitle: 'Wedding Planner', hero_image: '/images/gallery/TOP-SyP-324-hero.webp', landing_type: 'planner', adjustment_type: 'percentage', adjustment_value: -10, show_badge: true, badge_text: 'Descuento especial 10%', created_at: new Date(), updated_at: new Date() },
-    { id: 4, slug: 'colecciones-tania-silva', title: 'Tania Silva', subtitle: 'Wedding Planner', hero_image: '/images/gallery/TOP-AyJ-500.webp', landing_type: 'planner', adjustment_type: 'percentage', adjustment_value: -15, show_badge: true, badge_text: 'Descuento 15%', created_at: new Date(), updated_at: new Date() },
+    { id: 3, slug: 'colecciones-valeria-meza', title: 'Valeria Meza', subtitle: 'Wedding Planner', hero_image: '/images/gallery/TOP-SyP-324-hero.webp', landing_type: 'planner', adjustment_type: 'percentage', adjustment_value: -20, show_badge: true, badge_text: '20% DE DESCUENTO', created_at: new Date(), updated_at: new Date() },
+    { id: 4, slug: 'colecciones-tania-silva', title: 'Tania Silva', subtitle: 'Wedding Planner', hero_image: '/images/gallery/TOP-AyJ-500.webp', landing_type: 'planner', adjustment_type: 'percentage', adjustment_value: -40, show_badge: true, badge_text: '40% DE DESCUENTO', created_at: new Date(), updated_at: new Date() },
     { id: 5, slug: 'colecciones-sebastian-ramirez', title: 'Sebastián Ramírez', subtitle: 'Coordinador de Bodas', hero_image: '/images/gallery/TOP-CyD-67.webp', landing_type: 'planner', adjustment_type: 'percentage', adjustment_value: -12, show_badge: true, badge_text: '12% de descuento', created_at: new Date(), updated_at: new Date() },
     { id: 6, slug: 'colecciones-marcela-meza', title: 'Marcela Meza', subtitle: 'Wedding Planner', hero_image: '/images/gallery/TOP-KyB-236.webp', landing_type: 'planner', adjustment_type: 'percentage', adjustment_value: -10, show_badge: true, badge_text: 'Descuento 10%', created_at: new Date(), updated_at: new Date() },
     { id: 7, slug: 'colecciones-josefo-flores', title: 'Josefo Flores', subtitle: 'Event Designer', hero_image: '/images/gallery/TOP-PyC-312.webp', landing_type: 'planner', adjustment_type: 'fixed', adjustment_value: -20000, show_badge: true, badge_text: '$20,000 de descuento', created_at: new Date(), updated_at: new Date() },
-    { id: 8, slug: 'colecciones-rancho-la-joya', title: 'Rancho La Joya', subtitle: 'Venue exclusivo', hero_image: '/images/RLJ/L&A-363_websize.jpg', landing_type: 'planner', adjustment_type: 'percentage', adjustment_value: -10, show_badge: true, badge_text: 'Descuento para venue', created_at: new Date(), updated_at: new Date() },
+    { id: 8, slug: 'colecciones-rancho-la-joya', title: 'Rancho La Joya', subtitle: 'Venue exclusivo', hero_image: '/images/RLJ/L&A-363_websize.jpg', landing_type: 'planner', adjustment_type: 'percentage', adjustment_value: -50, show_badge: true, badge_text: '50% DE DESCUENTO', created_at: new Date(), updated_at: new Date() },
     { id: 9, slug: 'colecciones-club-tabachines', title: 'Club Tabachines', subtitle: 'Venue de lujo', hero_image: '/images/gallery/TOP-SyD-162.webp', landing_type: 'planner', adjustment_type: 'percentage', adjustment_value: -15, show_badge: true, badge_text: 'Beneficio exclusivo', created_at: new Date(), updated_at: new Date() },
     { id: 10, slug: 'colecciones-josema-gorrosquieta', title: 'Josema Gorrosquieta', subtitle: 'Wedding Planner', hero_image: '/images/gallery/TOP-SyP-116.webp', landing_type: 'planner', adjustment_type: 'percentage', adjustment_value: -10, show_badge: true, badge_text: '10% de descuento', created_at: new Date(), updated_at: new Date() },
-    { id: 11, slug: 'colecciones-the-wedding-partners', title: 'The Wedding Partners', subtitle: 'Agencia de Bodas', hero_image: '/images/gallery/KandE-474.webp', landing_type: 'planner', adjustment_type: 'percentage', adjustment_value: -12, show_badge: true, badge_text: '12% descuento', created_at: new Date(), updated_at: new Date() },
+    { id: 11, slug: 'colecciones-the-wedding-partners', title: 'The Wedding Partners', subtitle: 'Agencia de Bodas', hero_image: '/images/gallery/KandE-474.webp', landing_type: 'planner', adjustment_type: 'percentage', adjustment_value: -20, show_badge: true, badge_text: '20% DE DESCUENTO', created_at: new Date(), updated_at: new Date() },
     { id: 12, slug: 'colecciones-ht-planner', title: 'HT Planner', subtitle: 'Wedding Coordination', hero_image: '/images/gallery/PyP-432.webp', landing_type: 'planner', adjustment_type: 'fixed', adjustment_value: -15000, show_badge: true, badge_text: '$15,000 de descuento', created_at: new Date(), updated_at: new Date() },
+    { id: 13, slug: 'colecciones-gio-sullivan', title: 'Giovana Sullivan', subtitle: 'Wedding Planner', hero_image: '/images/gallery/TOP-PyP-505.webp', landing_type: 'planner', adjustment_type: 'percentage', adjustment_value: -20, show_badge: true, badge_text: '20% DE DESCUENTO', created_at: new Date(), updated_at: new Date() },
     // CLIENTS
-    { id: 13, slug: 'colecciones-paulina', title: 'Paulia R. Vasconcelos', subtitle: '14 de noviembre 2026, Mérida', hero_image: '/images/gallery/TOP-SyP-324-hero.webp', landing_type: 'client', adjustment_type: 'none', adjustment_value: 0, show_badge: false, badge_text: '', created_at: new Date(), updated_at: new Date() },
-    { id: 14, slug: 'colecciones-2026', title: 'Colecciones 2026', subtitle: 'Precios especiales', hero_image: '/images/gallery/SYO-832.webp', landing_type: 'client', adjustment_type: 'percentage', adjustment_value: -8, show_badge: true, badge_text: 'Promoción 2026', created_at: new Date(), updated_at: new Date() },
-    { id: 15, slug: 'colecciones-de-video-2026', title: 'Colecciones de Video 2026', subtitle: 'Paquetes de video', hero_image: '/images/gallery/AyJ-493.webp', landing_type: 'client', adjustment_type: 'none', adjustment_value: 0, show_badge: false, badge_text: '', created_at: new Date(), updated_at: new Date() },
-    { id: 16, slug: 'colecciones-de-foto-2026', title: 'Colecciones de Foto 2026', subtitle: 'Paquetes de fotografía', hero_image: '/images/gallery/CyD-80.webp', landing_type: 'client', adjustment_type: 'none', adjustment_value: 0, show_badge: false, badge_text: '', created_at: new Date(), updated_at: new Date() },
+    { id: 14, slug: 'colecciones-paulina', title: 'Paulia R. Vasconcelos', subtitle: '14 de noviembre 2026, Mérida', hero_image: '/images/gallery/TOP-SyP-324-hero.webp', landing_type: 'client', adjustment_type: 'none', adjustment_value: 0, show_badge: false, badge_text: '', created_at: new Date(), updated_at: new Date() },
+    { id: 15, slug: 'colecciones-2026', title: 'Colecciones 2026', subtitle: 'Precios especiales', hero_image: '/images/gallery/SYO-832.webp', landing_type: 'client', adjustment_type: 'percentage', adjustment_value: -8, show_badge: true, badge_text: 'Promoción 2026', created_at: new Date(), updated_at: new Date() },
+    { id: 16, slug: 'colecciones-de-video-2026', title: 'Colecciones de Video 2026', subtitle: 'Paquetes de video', hero_image: '/images/gallery/AyJ-493.webp', landing_type: 'client', adjustment_type: 'none', adjustment_value: 0, show_badge: false, badge_text: '', created_at: new Date(), updated_at: new Date() },
+    { id: 17, slug: 'colecciones-de-foto-2026', title: 'Colecciones de Foto 2026', subtitle: 'Paquetes de fotografía', hero_image: '/images/gallery/CyD-80.webp', landing_type: 'client', adjustment_type: 'none', adjustment_value: 0, show_badge: false, badge_text: '', created_at: new Date(), updated_at: new Date() },
   ],
-  users: [
+  users: process.env.NODE_ENV === 'production' ? [
+    {
+      email: process.env.ADMIN_EMAIL || 'anthony@arrebolweddings.com',
+      password: process.env.ADMIN_PASSWORD || 'changeme',
+      name: process.env.ADMIN_NAME || 'Anthony Cazares',
+      role: 'admin'
+    }
+  ] : [
     {
       email: 'anthony@arrebolweddings.com',
       password: process.env.ADMIN_PASSWORD || 'changeme',
@@ -1116,6 +1125,36 @@ app.post('/api/projects/:projectId/initialize-scenes', async (req, res) => {
 // LANDINGS ENDPOINTS
 // ============================================
 
+// Check if slug is available
+app.get('/api/landings/check-slug/:slug', async (req, res) => {
+  const { slug } = req.params;
+  const { excludeId } = req.query;
+  
+  if (useMemoryStorage) {
+    if (!memoryDB.landings) memoryDB.landings = [];
+    const existing = memoryDB.landings.find((l: any) => 
+      l.slug === slug && (!excludeId || l.id !== parseInt(excludeId as string))
+    );
+    res.json({ available: !existing });
+  } else {
+    try {
+      let query = 'SELECT id FROM landings WHERE slug = $1';
+      const params: any[] = [slug];
+      
+      if (excludeId) {
+        query += ' AND id != $2';
+        params.push(excludeId);
+      }
+      
+      const result = await pool.query(query, params);
+      res.json({ available: result.rows.length === 0 });
+    } catch (error) {
+      console.error('Error checking slug:', error);
+      res.status(500).json({ error: 'Error checking slug' });
+    }
+  }
+});
+
 // Get all landings
 app.get('/api/landings', async (req, res) => {
   if (useMemoryStorage) {
@@ -1138,6 +1177,11 @@ app.post('/api/landings', async (req, res) => {
   
   if (useMemoryStorage) {
     if (!memoryDB.landings) memoryDB.landings = [];
+    // Check for duplicate slug
+    const existingLanding = memoryDB.landings.find((l: any) => l.slug === slug);
+    if (existingLanding) {
+      return res.status(400).json({ error: 'Ya existe una landing con este slug' });
+    }
     const newLanding = {
       id: nextId++,
       slug,
@@ -1156,6 +1200,11 @@ app.post('/api/landings', async (req, res) => {
     res.json(newLanding);
   } else {
     try {
+      // Check for duplicate slug
+      const checkResult = await pool.query('SELECT id FROM landings WHERE slug = $1', [slug]);
+      if (checkResult.rows.length > 0) {
+        return res.status(400).json({ error: 'Ya existe una landing con este slug' });
+      }
       const result = await pool.query(
         `INSERT INTO landings (slug, title, subtitle, hero_image, adjustment_type, adjustment_value, show_badge, badge_text, landing_type) 
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
@@ -1178,6 +1227,11 @@ app.put('/api/landings/:id', async (req, res) => {
     if (!memoryDB.landings) memoryDB.landings = [];
     const index = memoryDB.landings.findIndex((l: any) => l.id === parseInt(id));
     if (index !== -1) {
+      // Check for duplicate slug (excluding current landing)
+      const existingLanding = memoryDB.landings.find((l: any) => l.slug === slug && l.id !== parseInt(id));
+      if (existingLanding) {
+        return res.status(400).json({ error: 'Ya existe una landing con este slug' });
+      }
       memoryDB.landings[index] = {
         ...memoryDB.landings[index],
         slug,
@@ -1197,6 +1251,11 @@ app.put('/api/landings/:id', async (req, res) => {
     }
   } else {
     try {
+      // Check for duplicate slug (excluding current landing)
+      const checkResult = await pool.query('SELECT id FROM landings WHERE slug = $1 AND id != $2', [slug, id]);
+      if (checkResult.rows.length > 0) {
+        return res.status(400).json({ error: 'Ya existe una landing con este slug' });
+      }
       const result = await pool.query(
         `UPDATE landings SET slug = $1, title = $2, subtitle = $3, hero_image = $4, 
          adjustment_type = $5, adjustment_value = $6, show_badge = $7, badge_text = $8, 
@@ -1332,19 +1391,20 @@ export const metadata = {
   description: '${landing.subtitle}',
 };
 
+const landingData = {
+  title: "${landing.title}",
+  subtitle: "${landing.subtitle}",
+  slug: "${landing.slug}",
+  hero_image: "${landing.hero_image}",
+  landing_type: "${landing.landing_type}",
+  adjustment_type: "${landing.adjustment_type}",
+  adjustment_value: ${landing.adjustment_value},
+  show_badge: ${landing.show_badge},
+  badge_text: "${landing.badge_text}",
+};
+
 export default function ${landing.slug.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join('')}Page() {
-  return (
-    <CollectionPageClient
-      title="${landing.title}"
-      subtitle="${landing.subtitle}"
-      heroImage="${landing.hero_image}"
-      landingType="${landing.landing_type}"
-      adjustmentType="${landing.adjustment_type}"
-      adjustmentValue={${landing.adjustment_value}}
-      showBadge={${landing.show_badge}}
-      badgeText="${landing.badge_text}"
-    />
-  );
+  return <CollectionPageClient landingData={landingData} />;
 }
 `;
     
@@ -1384,18 +1444,43 @@ app.post('/api/landings/preview', async (req, res) => {
   const landingData = req.body;
   
   try {
-    // En una implementación completa, aquí se generaría un preview temporal
-    // Por ahora solo retornamos la URL donde estaría el preview
-    const previewUrl = `/preview/${landingData.slug || 'temp-preview'}`;
+    // Guardar datos temporales en memoria
+    memoryDB.previewData[landingData.slug] = {
+      ...landingData,
+      timestamp: new Date()
+    };
+    
+    console.log('Preview data saved for:', landingData.slug);
+    
+    // Retornar la URL del preview dinámico
+    const previewUrl = `/preview/${landingData.slug}`;
     
     res.json({ 
       success: true, 
       previewUrl,
-      message: 'Preview generado (funcionalidad completa pendiente de implementar)'
+      message: 'Vista previa generada con éxito'
     });
   } catch (error) {
     console.error('Error generating preview:', error);
     res.status(500).json({ error: 'Error al generar preview' });
+  }
+});
+
+// Endpoint para obtener datos de preview
+app.get('/api/preview/:slug', (req, res) => {
+  const { slug } = req.params;
+  
+  try {
+    const previewData = memoryDB.previewData[slug];
+    
+    if (!previewData) {
+      return res.status(404).json({ error: 'Preview data not found' });
+    }
+    
+    res.json(previewData);
+  } catch (error) {
+    console.error('Error fetching preview data:', error);
+    res.status(500).json({ error: 'Error al obtener datos de preview' });
   }
 });
 
@@ -1458,7 +1543,9 @@ app.post('/api/recibos', async (req, res) => {
     payment_method,
     payment_date,
     concept,
-    notes
+    notes,
+    venue,
+    event_date
   } = req.body;
 
   if (useMemoryStorage) {
@@ -1475,6 +1562,8 @@ app.post('/api/recibos', async (req, res) => {
       payment_date: payment_date || new Date().toISOString().split('T')[0],
       concept: concept || 'Anticipo',
       notes: notes || '',
+      venue: venue || '',
+      event_date: event_date || '',
       created_at: new Date().toISOString()
     };
     
@@ -1485,8 +1574,8 @@ app.post('/api/recibos', async (req, res) => {
       const result = await pool.query(
         `INSERT INTO recibos (
           contrato_id, client_name, client_email, receipt_number, amount, 
-          payment_method, payment_date, concept, notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          payment_method, payment_date, concept, notes, venue, event_date
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING *`,
         [
           contrato_id || null,
@@ -1497,7 +1586,9 @@ app.post('/api/recibos', async (req, res) => {
           payment_method || 'Transferencia',
           payment_date || new Date().toISOString().split('T')[0],
           concept || 'Anticipo',
-          notes || ''
+          notes || '',
+          venue || '',
+          event_date || ''
         ]
       );
       res.json(result.rows[0]);
@@ -1520,7 +1611,9 @@ app.put('/api/recibos/:id', async (req, res) => {
     payment_method,
     payment_date,
     concept,
-    notes
+    notes,
+    venue,
+    event_date
   } = req.body;
 
   if (useMemoryStorage) {
@@ -1541,7 +1634,9 @@ app.put('/api/recibos/:id', async (req, res) => {
       payment_method: payment_method || 'Transferencia',
       payment_date: payment_date || new Date().toISOString().split('T')[0],
       concept: concept || 'Anticipo',
-      notes: notes || ''
+      notes: notes || '',
+      venue: venue || '',
+      event_date: event_date || ''
     };
     
     res.json(memoryDB.recibos[index]);
@@ -1550,8 +1645,9 @@ app.put('/api/recibos/:id', async (req, res) => {
       const result = await pool.query(
         `UPDATE recibos SET 
           contrato_id = $1, client_name = $2, client_email = $3, receipt_number = $4,
-          amount = $5, payment_method = $6, payment_date = $7, concept = $8, notes = $9
-        WHERE id = $10
+          amount = $5, payment_method = $6, payment_date = $7, concept = $8, notes = $9,
+          venue = $10, event_date = $11
+        WHERE id = $12
         RETURNING *`,
         [
           contrato_id || null,
@@ -1563,6 +1659,8 @@ app.put('/api/recibos/:id', async (req, res) => {
           payment_date || new Date().toISOString().split('T')[0],
           concept || 'Anticipo',
           notes || '',
+          venue || '',
+          event_date || '',
           id
         ]
       );
@@ -1761,13 +1859,13 @@ app.post('/api/contratos', async (req, res) => {
       id: memoryDB.contratos.length + 1,
       project_id: project_id || null,
       client_name,
-      client_email,
+      client_email: client_email || '',
       client_phone: client_phone || '',
-      client_address: client_address || '',
+      client_address,
       wedding_date,
       venue: venue || '',
       venue_address: venue_address || '',
-      package_type: package_type || 'Básico',
+      package_type: package_type || 'Colección Uno',
       coverage_hours: coverage_hours || 10,
       photographers_count: photographers_count || 1,
       videographers_count: videographers_count || 1,

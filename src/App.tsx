@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import Login from './Login';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
-const API_BASE = '/editor-api';
+const API_BASE = '/api';
 
 interface Project {
   id: number;
@@ -33,6 +35,9 @@ interface Version {
   target_duration_max: number;
   actual_duration: number;
   status?: string;
+  suggested_songs?: Array<{title: string, artist: string, mood: string, tempo: string}>;
+  suggested_opening_scenes?: Scene[];
+  suggested_closing_scenes?: Scene[];
 }
 
 interface User {
@@ -57,7 +62,10 @@ function App() {
   const [userRole, setUserRole] = useState(() => localStorage.getItem('userRole') || '');
   const [users, setUsers] = useState<User[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(() => {
+    const saved = localStorage.getItem('selectedProjectId');
+    return saved ? null : null; // Will be loaded after projects fetch
+  });
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [versions, setVersions] = useState<Version[]>([]);
   const [newProjectName, setNewProjectName] = useState('');
@@ -77,7 +85,7 @@ function App() {
   const [showScenesTable, setShowScenesTable] = useState(false);
   const [showSelectedTable, setShowSelectedTable] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState<'name' | 'date'>('date');
+  const [sortBy, setSortBy] = useState<'name' | 'date'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [suggestionKey, setSuggestionKey] = useState(0);
@@ -87,42 +95,72 @@ function App() {
   const [openingSuggestions, setOpeningSuggestions] = useState<Scene[]>([]);
   const [anchorOrder, setAnchorOrder] = useState<Scene[]>([]);
   const [closingSuggestions, setClosingSuggestions] = useState<Scene[]>([]);
+  const [suggestionsLoaded, setSuggestionsLoaded] = useState(false);
   const [suggestedSongs, setSuggestedSongs] = useState<Array<{title: string, artist: string, mood: string, tempo: string}>>([]);
   const [suggestionsExpanded, setSuggestionsExpanded] = useState(true);
   
-  // Lista de canciones para sugerencias
-  const weddingSongs = [
-    { title: 'At Last', artist: 'Etta James', mood: 'classic', tempo: 'slow' },
-    { title: 'L-O-V-E', artist: 'Nat King Cole', mood: 'classic', tempo: 'medium' },
-    { title: 'My Girl', artist: 'The Temptations', mood: 'classic', tempo: 'medium' },
-    { title: 'My Way', artist: 'Frank Sinatra', mood: 'classic', tempo: 'medium' },
-    { title: "That's Life", artist: 'Frank Sinatra', mood: 'classic', tempo: 'medium' },
-    { title: 'I Say a Little Prayer', artist: 'Aretha Franklin', mood: 'classic', tempo: 'medium' },
+  // Categoría 1: Canciones vintage - 31 canciones (Teaser + Highlights canción 1)
+  const classicSongs = [
+    { title: 'At Last', artist: 'Etta James', mood: 'vintage', tempo: 'slow' },
+    { title: 'L-O-V-E', artist: 'Nat King Cole', mood: 'vintage', tempo: 'medium' },
+    { title: 'My Girl', artist: 'The Temptations', mood: 'vintage', tempo: 'medium' },
+    { title: 'My Way', artist: 'Frank Sinatra', mood: 'vintage', tempo: 'medium' },
+    { title: "That's Life", artist: 'Frank Sinatra', mood: 'vintage', tempo: 'medium' },
+    { title: 'I Say a Little Prayer', artist: 'Aretha Franklin', mood: 'vintage', tempo: 'medium' },
     { title: "Can't Take My Eyes off You", artist: 'Frankie Valli', mood: 'romantic', tempo: 'medium' },
-    { title: 'Stand By Me', artist: 'Ben E. King', mood: 'classic', tempo: 'slow' },
-    { title: 'Fly Me To The Moon', artist: 'Frank Sinatra, Count Basie', mood: 'classic', tempo: 'medium' },
-    { title: 'What A Wonderful World', artist: 'Louis Armstrong', mood: 'classic', tempo: 'slow' },
-    { title: "Ain't No Mountain High Enough", artist: 'Marvin Gaye, Tammi Terrell', mood: 'classic', tempo: 'fast' },
+    { title: 'Stand By Me', artist: 'Ben E. King', mood: 'vintage', tempo: 'slow' },
+    { title: 'Fly Me To The Moon', artist: 'Frank Sinatra, Count Basie', mood: 'vintage', tempo: 'medium' },
+    { title: 'What A Wonderful World', artist: 'Louis Armstrong', mood: 'vintage', tempo: 'slow' },
+    { title: "Ain't No Mountain High Enough", artist: 'Marvin Gaye, Tammi Terrell', mood: 'vintage', tempo: 'fast' },
     { title: 'I Just Called To Say I Love You', artist: 'Stevie Wonder', mood: 'romantic', tempo: 'medium' },
-    { title: 'Strangers In The Night', artist: 'Frank Sinatra', mood: 'classic', tempo: 'medium' },
-    { title: 'La Vie En Rose', artist: 'Louis Armstrong And His Orchestra', mood: 'classic', tempo: 'slow' },
+    { title: 'Strangers In The Night', artist: 'Frank Sinatra', mood: 'vintage', tempo: 'medium' },
+    { title: 'La Vie En Rose', artist: 'Louis Armstrong And His Orchestra', mood: 'vintage', tempo: 'slow' },
     { title: 'Put Your Head on My Shoulder', artist: 'Paul Anka', mood: 'romantic', tempo: 'slow' },
-    { title: 'In the Mood', artist: 'Glenn Miller', mood: 'classic', tempo: 'fast' },
-    { title: "It's Been A Long, Long Time", artist: 'Harry James', mood: 'classic', tempo: 'medium' },
-    { title: "I Don't Want To Set The World On Fire", artist: 'The Ink Spots', mood: 'classic', tempo: 'slow' },
-    { title: 'Dream A Little Dream Of Me', artist: 'Ella Fitzgerald, Louis Armstrong', mood: 'classic', tempo: 'slow' },
-    { title: "It's A Rather Long Time", artist: 'Kitty Kallen, The Harry James Orchestra', mood: 'classic', tempo: 'medium' },
-    { title: "We'll Meet Again", artist: 'Vera Lynn', mood: 'classic', tempo: 'medium' },
+    { title: 'In the Mood', artist: 'Glenn Miller', mood: 'vintage', tempo: 'fast' },
+    { title: "It's Been A Long, Long Time", artist: 'Harry James', mood: 'vintage', tempo: 'medium' },
+    { title: "I Don't Want To Set The World On Fire", artist: 'The Ink Spots', mood: 'vintage', tempo: 'slow' },
+    { title: 'Dream A Little Dream Of Me', artist: 'Ella Fitzgerald, Louis Armstrong', mood: 'vintage', tempo: 'slow' },
+    { title: "It's A Rather Long Time", artist: 'Kitty Kallen, The Harry James Orchestra', mood: 'vintage', tempo: 'medium' },
+    { title: "We'll Meet Again", artist: 'Vera Lynn', mood: 'vintage', tempo: 'medium' },
     { title: 'Unchained Melody', artist: 'The Righteous Brothers', mood: 'romantic', tempo: 'slow' },
-    { title: "That's Amore", artist: 'Dean Martin', mood: 'classic', tempo: 'medium' },
-    { title: 'Orange Colored Sky', artist: 'Nat King Cole', mood: 'classic', tempo: 'fast' },
-    { title: 'Cheek To Cheek', artist: 'Fred Astaire', mood: 'classic', tempo: 'medium' },
+    { title: "That's Amore", artist: 'Dean Martin', mood: 'vintage', tempo: 'medium' },
+    { title: 'Orange Colored Sky', artist: 'Nat King Cole', mood: 'vintage', tempo: 'fast' },
+    { title: 'Cheek To Cheek', artist: 'Fred Astaire', mood: 'vintage', tempo: 'medium' },
     { title: 'The Way You Look Tonight', artist: 'Tony Bennett', mood: 'romantic', tempo: 'slow' },
     { title: 'Unforgettable', artist: 'Nat King Cole', mood: 'romantic', tempo: 'slow' },
-    { title: 'Dream A Little Dream Of Me', artist: 'Doris Day', mood: 'classic', tempo: 'slow' },
+    { title: 'Dream A Little Dream Of Me', artist: 'Doris Day', mood: 'vintage', tempo: 'slow' },
     { title: "Can't Help Falling In Love", artist: 'Elvis Presley', mood: 'romantic', tempo: 'slow' },
     { title: 'A Summer Place', artist: 'Andy Williams', mood: 'romantic', tempo: 'slow' },
-    { title: 'More (Theme From Mondo Cane)', artist: 'Frank Sinatra, Count Basie', mood: 'classic', tempo: 'medium' }
+    { title: 'More (Theme From Mondo Cane)', artist: 'Frank Sinatra, Count Basie', mood: 'vintage', tempo: 'medium' }
+  ];
+
+  // Categoría 2: Música clásica instrumental - 13 canciones (Highlights canción 2)
+  const instrumentalSongs = [
+    { title: 'II Allemande', artist: 'Brooklyn Classical', mood: 'classical', tempo: 'medium' },
+    { title: 'Scorched Earth', artist: 'Maya Beisitzman', mood: 'classical', tempo: 'medium' },
+    { title: 'Sojourner', artist: 'Ardie Son', mood: 'classical', tempo: 'medium' },
+    { title: 'Winterlight', artist: 'Brianna Tam', mood: 'classical', tempo: 'slow' },
+    { title: 'Arvo Pärt Spiegel im Spiegel for Cello and Piano', artist: 'Edward Arron & Jeewon Park at the Clark', mood: 'classical', tempo: 'slow' },
+    { title: 'Come Back Home', artist: 'Ardie Son', mood: 'classical', tempo: 'medium' },
+    { title: 'IV Sarabande', artist: 'Brooklyn Classical', mood: 'classical', tempo: 'slow' },
+    { title: 'Gymnopédie no 1', artist: 'Romi Kopelman', mood: 'classical', tempo: 'slow' },
+    { title: 'Hallelujah', artist: 'Unknown', mood: 'classical', tempo: 'slow' },
+    { title: 'Bésame Mucho on Harp & Cello', artist: 'Unknown', mood: 'classical', tempo: 'medium' },
+    { title: 'Enter Reworked', artist: 'Christopher Galovan', mood: 'classical', tempo: 'medium' },
+    { title: 'Reminiscence', artist: 'Ben Winwood', mood: 'classical', tempo: 'slow' },
+    { title: 'Flower Duet Lakmé', artist: 'Hawkins', mood: 'classical', tempo: 'medium' }
+  ];
+
+  // Categoría 3: Canciones modernas (Highlights canción 3)
+  const modernSongs = [
+    { title: 'Innerbloom', artist: 'RÜFÜS DU SOL', mood: 'modern', tempo: 'medium' },
+    { title: 'Freeze', artist: 'Kygo', mood: 'modern', tempo: 'medium' },
+    { title: 'Feel So Close (Radio Edit)', artist: 'Calvin Harris', mood: 'modern', tempo: 'fast' },
+    { title: 'Saturday Night', artist: 'The Underdog Project', mood: 'modern', tempo: 'fast' },
+    { title: "Can't Hold Us (feat. Ray Dalton)", artist: 'Macklemore & Ryan Lewis', mood: 'modern', tempo: 'fast' },
+    { title: 'Hold My Hand', artist: 'Jess Glynne', mood: 'modern', tempo: 'fast' },
+    { title: 'Heaven Is A Place On Earth (Official Music Video)', artist: 'W&W x AXMO', mood: 'modern', tempo: 'fast' },
+    { title: 'Nalu', artist: 'Deep Chills, Brendan Mills', mood: 'modern', tempo: 'medium' }
   ];
   const handleLogin = (email: string, name: string, role: string) => {
     localStorage.setItem('auth', 'true');
@@ -143,6 +181,7 @@ function App() {
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userName');
     localStorage.removeItem('userRole');
+    localStorage.removeItem('selectedProjectId');
     console.log('localStorage cleared, auth:', localStorage.getItem('auth'));
     setIsAuthenticated(false);
     console.log('isAuthenticated set to false');
@@ -159,27 +198,150 @@ function App() {
     }
   }, [isAuthenticated]);
 
+  // Restaurar proyecto seleccionado desde URL o localStorage al cargar
+  useEffect(() => {
+    if (projects.length > 0 && !selectedProject && !loadingProjects) {
+      // Primero intentar desde URL hash
+      const hash = window.location.hash;
+      const match = hash.match(/^#\/project\/(\d+)$/);
+      
+      let projectId: string | null = null;
+      if (match) {
+        projectId = match[1];
+      } else {
+        // Si no hay hash, intentar desde localStorage
+        projectId = localStorage.getItem('selectedProjectId');
+      }
+      
+      if (projectId) {
+        const project = projects.find(p => p.id === parseInt(projectId));
+        if (project) {
+          setSelectedProject(project);
+        }
+      }
+    }
+  }, [projects, loadingProjects]);
+
   useEffect(() => {
     if (selectedProject) {
+      localStorage.setItem('selectedProjectId', selectedProject.id.toString());
+      // Actualizar URL con el ID del proyecto
+      window.history.replaceState(null, '', `#/project/${selectedProject.id}`);
       fetchScenes(selectedProject.id);
       fetchVersions(selectedProject.id);
       setProjectForm({
         name: selectedProject.name,
         wedding_date: selectedProject.wedding_date || ''
       });
+    } else if (!loadingProjects) {
+      // Solo limpiar la URL si no estamos cargando proyectos
+      // (para evitar resetear la URL durante el refresh inicial)
+      const hash = window.location.hash;
+      const hasProjectInUrl = hash.match(/^#\/project\/(\d+)$/);
+      
+      if (!hasProjectInUrl) {
+        localStorage.removeItem('selectedProjectId');
+        // Volver a la vista principal
+        window.history.replaceState(null, '', '#/');
+      }
     }
-  }, [selectedProject]);
+  }, [selectedProject, loadingProjects]);
 
-  // Actualizar todas las sugerencias solo cuando se regeneran o se abre el modal
+  // Cargar sugerencias guardadas cuando se selecciona una versión
   useEffect(() => {
-    if (showSuggestions && activeVersion && scenes.length > 0) {
+    if (activeVersion && scenes.length > 0 && !suggestionsLoaded) {
+      // Si tiene sugerencias guardadas, usarlas (verificar que no sean null y tengan elementos)
+      const hasSavedSongs = activeVersion.suggested_songs && Array.isArray(activeVersion.suggested_songs) && activeVersion.suggested_songs.length > 0;
+      const hasSavedOpening = activeVersion.suggested_opening_scenes && Array.isArray(activeVersion.suggested_opening_scenes) && activeVersion.suggested_opening_scenes.length > 0;
+      const hasSavedClosing = activeVersion.suggested_closing_scenes && Array.isArray(activeVersion.suggested_closing_scenes) && activeVersion.suggested_closing_scenes.length > 0;
+      
+      console.log('Verificando sugerencias guardadas:', {
+        version: activeVersion.name,
+        hasSavedSongs,
+        hasSavedOpening,
+        hasSavedClosing,
+        songsData: activeVersion.suggested_songs,
+        openingData: activeVersion.suggested_opening_scenes,
+        closingData: activeVersion.suggested_closing_scenes
+      });
+      
+      if (hasSavedSongs || hasSavedOpening || hasSavedClosing) {
+        // Usar sugerencias guardadas
+        console.log('✅ Cargando sugerencias guardadas');
+        if (hasSavedSongs) setSuggestedSongs(activeVersion.suggested_songs!);
+        if (hasSavedOpening) setOpeningSuggestions(activeVersion.suggested_opening_scenes!);
+        if (hasSavedClosing) setClosingSuggestions(activeVersion.suggested_closing_scenes!);
+        
+        // Generar solo las que faltan
+        if (!hasSavedSongs || !hasSavedOpening || !hasSavedClosing) {
+          console.log('⚠️ Generando sugerencias faltantes');
+          const suggestions = !hasSavedOpening || !hasSavedClosing ? getSuggestedScenes() : { opening: [], closing: [], anchor: [] };
+          const songs = !hasSavedSongs ? getSuggestedSongs() : [];
+          
+          if (!hasSavedOpening) setOpeningSuggestions(suggestions.opening);
+          if (!hasSavedClosing) setClosingSuggestions(suggestions.closing);
+          if (!hasSavedSongs) setSuggestedSongs(songs);
+          if (suggestions.anchor) setAnchorOrder(suggestions.anchor);
+          
+          // Guardar las nuevas sugerencias
+          saveSuggestions(
+            hasSavedOpening ? activeVersion.suggested_opening_scenes! : suggestions.opening,
+            hasSavedClosing ? activeVersion.suggested_closing_scenes! : suggestions.closing,
+            hasSavedSongs ? activeVersion.suggested_songs! : songs
+          );
+        }
+      } else {
+        // No hay sugerencias guardadas, generar nuevas
+        console.log('🔄 No hay sugerencias guardadas, generando nuevas...');
+        const shouldShowSuggestions = !activeVersion.name.toLowerCase().includes('full');
+        if (shouldShowSuggestions) {
+          const suggestions = getSuggestedScenes();
+          setOpeningSuggestions(suggestions.opening);
+          setAnchorOrder(suggestions.anchor);
+          setClosingSuggestions(suggestions.closing);
+          const songs = getSuggestedSongs();
+          setSuggestedSongs(songs);
+          
+          // Guardar las sugerencias en la base de datos
+          console.log('💾 Guardando nuevas sugerencias');
+          saveSuggestions(suggestions.opening, suggestions.closing, songs);
+        }
+      }
+      
+      setSuggestionsLoaded(true); // Marcar como cargadas para evitar regeneraciones
+    }
+  }, [activeVersion, scenes, suggestionsLoaded]);
+
+  // Actualizar todas las sugerencias solo cuando se regeneran manualmente
+  useEffect(() => {
+    console.log('🔄 useEffect regeneración manual disparado');
+    console.log('  suggestionKey:', suggestionKey);
+    console.log('  showSuggestions:', showSuggestions);
+    console.log('  activeVersion:', activeVersion);
+    console.log('  scenes.length:', scenes.length);
+    
+    // No mostrar sugerencias en versión full (se usa todo el material en orden cronológico)
+    const shouldShowSuggestions = activeVersion && !activeVersion.name.toLowerCase().includes('full');
+    console.log('  shouldShowSuggestions:', shouldShowSuggestions);
+    
+    if (showSuggestions && shouldShowSuggestions && scenes.length > 0 && suggestionKey > 0) {
+      console.log('  ✅ Todas las condiciones cumplidas, regenerando...');
       const suggestions = getSuggestedScenes();
       setOpeningSuggestions(suggestions.opening);
       setAnchorOrder(suggestions.anchor);
       setClosingSuggestions(suggestions.closing);
-      setSuggestedSongs(getSuggestedSongs());
+      const songs = getSuggestedSongs();
+      console.log('  Canciones retornadas por getSuggestedSongs:', songs);
+      console.log('  Estableciendo suggestedSongs con:', songs);
+      setSuggestedSongs(songs);
+      
+      // Guardar las sugerencias en la base de datos
+      saveSuggestions(suggestions.opening, suggestions.closing, songs);
+      setSuggestionsLoaded(true); // Marcar como cargadas después de regenerar
+    } else {
+      console.log('  ❌ Condiciones no cumplidas, no se regenera');
     }
-  }, [suggestionKey, showSuggestions, activeVersion]);
+  }, [suggestionKey]);
 
   const fetchProjects = async () => {
     try {
@@ -243,10 +405,41 @@ function App() {
     try {
       const res = await fetch(`${API_BASE}/projects/${projectId}/versions`);
       const data = await res.json();
-      setVersions(data);
+      
+      // Parsear campos JSONB si vienen como strings
+      const parsedData = data.map((v: any) => {
+        const parseSuggestion = (field: any) => {
+          if (!field) return null;
+          if (typeof field === 'string') {
+            try {
+              const parsed = JSON.parse(field);
+              return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+            } catch {
+              return null;
+            }
+          }
+          return Array.isArray(field) && field.length > 0 ? field : null;
+        };
+        
+        return {
+          ...v,
+          suggested_songs: parseSuggestion(v.suggested_songs),
+          suggested_opening_scenes: parseSuggestion(v.suggested_opening_scenes),
+          suggested_closing_scenes: parseSuggestion(v.suggested_closing_scenes)
+        };
+      });
+      
+      console.log('Versions loaded:', parsedData.map((v: any) => ({
+        name: v.name,
+        hasSongs: !!v.suggested_songs,
+        hasOpening: !!v.suggested_opening_scenes,
+        hasClosing: !!v.suggested_closing_scenes
+      })));
+      
+      setVersions(parsedData);
       
       // Auto-select Completo version
-      const completoVersion = data.find((v: Version) => v.type === 'long');
+      const completoVersion = parsedData.find((v: Version) => v.type === 'long');
       if (completoVersion) {
         setActiveVersion(completoVersion);
         loadVersionScenes(completoVersion.id);
@@ -280,6 +473,7 @@ function App() {
 
   const selectVersion = (version: Version) => {
     setActiveVersion(version);
+    setSuggestionsLoaded(false); // Reset flag cuando se cambia de versión
     loadVersionScenes(version.id);
   };
 
@@ -537,8 +731,35 @@ function App() {
     return sceneGroup.reduce((sum, s) => sum + s.planned_duration, 0);
   };
 
+  const saveSuggestions = async (openingScenes: Scene[], closingScenes: Scene[], songs: any[]) => {
+    if (!activeVersion) return;
+    
+    try {
+      await fetch(`${API_BASE}/versions/${activeVersion.id}/suggestions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          songs,
+          openingScenes,
+          closingScenes
+        })
+      });
+    } catch (error) {
+      console.error('Error saving suggestions:', error);
+    }
+  };
+
   const getSuggestedSongs = () => {
-    if (!activeVersion) return [];
+    console.log('🎵 getSuggestedSongs llamado');
+    console.log('  activeVersion:', activeVersion);
+    console.log('  classicSongs length:', classicSongs.length);
+    console.log('  instrumentalSongs length:', instrumentalSongs.length);
+    console.log('  modernSongs length:', modernSongs.length);
+    
+    if (!activeVersion) {
+      console.log('  ❌ No hay activeVersion, retornando []');
+      return [];
+    }
 
     const shuffle = <T,>(array: T[]): T[] => {
       const shuffled = [...array];
@@ -550,20 +771,306 @@ function App() {
     };
 
     const versionName = activeVersion.name.toLowerCase();
-    
-    // Todas las canciones mezcladas
-    const allSongs = shuffle(weddingSongs);
-
-    // Determinar cantidad según la versión
-    let songCount = 0;
+    console.log('  Version name:', versionName);
     
     if (versionName.includes('teaser')) {
-      songCount = 1;
+      // Teaser: 1 canción de Categoría 1
+      console.log('  ✅ Es Teaser, retornando 1 canción');
+      return shuffle(classicSongs).slice(0, 1);
     } else if (versionName.includes('highlights')) {
-      songCount = 3;
+      // Highlights: 1 de cada categoría (3 canciones total)
+      console.log('  ✅ Es Highlights, generando 3 canciones');
+      const song1 = shuffle(classicSongs)[0];
+      const song2 = shuffle(instrumentalSongs)[0];
+      const song3 = shuffle(modernSongs)[0];
+      const result = [song1, song2, song3];
+      console.log('  Canciones generadas:', result);
+      return result;
     }
 
-    return allSongs.slice(0, songCount);
+    console.log('  ❌ No es Teaser ni Highlights, retornando []');
+    return [];
+  };
+
+  const exportToPDF = async () => {
+    if (!selectedProject) return;
+    
+    // Obtener todas las versiones para incluir Teaser y Highlights
+    const teaserVersion = versions.find(v => v.name.toLowerCase().includes('teaser'));
+    const highlightsVersion = versions.find(v => v.name.toLowerCase().includes('highlights'));
+    
+    if (!teaserVersion && !highlightsVersion) return;
+    
+    // Helper para generar sugerencias de una versión específica
+    const generateSuggestionsForVersion = (version: Version) => {
+      const shuffle = <T,>(array: T[]): T[] => {
+        const shuffled = [...array];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
+      };
+      
+      const openingScenes = shuffle(scenes.filter(s => 
+        s.anchor_description === 'OPENING' ||
+        (s.name === 'First Look' && s.description === 'First look novio')
+      ));
+      const anchorScenes = shuffle(scenes.filter(s => s.is_anchor_moment === 'SI'));
+      const closingScenes = shuffle(scenes.filter(s => 
+        s.anchor_description === 'CLOSING' || 
+        (s.is_anchor_moment === 'SI' && s.division === 'RESOLUCION')
+      ));
+      
+      const versionName = version.name.toLowerCase();
+      let openingCount = 1;
+      let anchorCount = 5;
+      let closingCount = 1;
+      
+      if (versionName.includes('highlights')) {
+        anchorCount = 10;
+      }
+      
+      // Canciones
+      let songs: any[] = [];
+      if (versionName.includes('teaser')) {
+        songs = shuffle(classicSongs).slice(0, 1);
+      } else if (versionName.includes('highlights')) {
+        const song1 = shuffle(classicSongs)[0];
+        const song2 = shuffle(instrumentalSongs)[0];
+        const song3 = shuffle(modernSongs)[0];
+        songs = [song1, song2, song3];
+      }
+      
+      return {
+        opening: openingScenes.slice(0, openingCount),
+        anchor: anchorScenes.slice(0, anchorCount),
+        closing: closingScenes.slice(0, closingCount),
+        songs
+      };
+    };
+    
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    // Logo estilo Arrebol - Tipografía serif elegante
+    doc.setFont('times', 'bold');
+    doc.setFontSize(32);
+    doc.setTextColor(0, 0, 0);
+    doc.setCharSpace(2);
+    doc.text('ARREBOL', pageWidth / 2, 22, { align: 'center' });
+    
+    doc.setFont('times', 'italic');
+    doc.setFontSize(10);
+    doc.setCharSpace(4);
+    doc.setTextColor(100, 100, 100);
+    doc.text('W E D D I N G S', pageWidth / 2, 29, { align: 'center' });
+    
+    // Línea decorativa sutil
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.2);
+    doc.line(70, 34, pageWidth - 70, 34);
+    
+    // Información del proyecto
+    doc.setCharSpace(0);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(18);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Sugerencias de Edición', 20, 48);
+    
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Proyecto: ${selectedProject.name}`, 20, 58);
+    
+    if (selectedProject.assigned_to) {
+      doc.text(`Editor: ${selectedProject.assigned_to}`, 20, 64);
+    }
+    
+    if (selectedProject.wedding_date) {
+      const date = new Date(selectedProject.wedding_date);
+      doc.text(`Fecha de boda: ${date.toLocaleDateString('es-MX')}`, 20, 70);
+    }
+    
+    let yPosition = 82;
+    
+    // Función helper para agregar sugerencias de una versión
+    const addVersionSuggestions = (version: Version, suggestions: any) => {
+      // Título de la versión
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`— ${version.name} —`, pageWidth / 2, yPosition, { align: 'center' });
+      yPosition += 8;
+      
+      // Introducción
+      if (suggestions.opening.length > 0) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(60, 60, 60);
+        doc.text(`Introducción (${suggestions.opening.length})`, 20, yPosition);
+        yPosition += 5;
+        
+        const openingData = suggestions.opening.map((scene: Scene, idx: number) => [
+          `${idx + 1}`,
+          scene.name,
+          scene.description
+        ]);
+        
+        autoTable(doc, {
+          startY: yPosition,
+          head: [['#', 'Escena', 'Descripción']],
+          body: openingData,
+          theme: 'plain',
+          headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
+          margin: { left: 20, right: 20 },
+          styles: { fontSize: 9, cellPadding: 3 },
+          alternateRowStyles: { fillColor: [250, 250, 250] }
+        });
+        
+        yPosition = (doc as any).lastAutoTable.finalY + 8;
+      }
+      
+      // Desarrollo
+      if (suggestions.anchor.length > 0) {
+        if (yPosition > 230) {
+          doc.addPage();
+          yPosition = 20;
+        }
+        
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(60, 60, 60);
+        doc.text(`Desarrollo (${suggestions.anchor.length})`, 20, yPosition);
+        yPosition += 5;
+        
+        const anchorData = suggestions.anchor.map((scene: Scene, idx: number) => [
+          `${idx + 1}`,
+          scene.name,
+          scene.description
+        ]);
+        
+        autoTable(doc, {
+          startY: yPosition,
+          head: [['#', 'Escena', 'Descripción']],
+          body: anchorData,
+          theme: 'plain',
+          headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
+          margin: { left: 20, right: 20 },
+          styles: { fontSize: 9, cellPadding: 3 },
+          alternateRowStyles: { fillColor: [250, 250, 250] }
+        });
+        
+        yPosition = (doc as any).lastAutoTable.finalY + 8;
+      }
+      
+      // Desenlace
+      if (suggestions.closing.length > 0) {
+        if (yPosition > 230) {
+          doc.addPage();
+          yPosition = 20;
+        }
+        
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(60, 60, 60);
+        doc.text(`Desenlace (${suggestions.closing.length})`, 20, yPosition);
+        yPosition += 5;
+        
+        const closingData = suggestions.closing.map((scene: Scene, idx: number) => [
+          `${idx + 1}`,
+          scene.name,
+          scene.description
+        ]);
+        
+        autoTable(doc, {
+          startY: yPosition,
+          head: [['#', 'Escena', 'Descripción']],
+          body: closingData,
+          theme: 'plain',
+          headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
+          margin: { left: 20, right: 20 },
+          styles: { fontSize: 9, cellPadding: 3 },
+          alternateRowStyles: { fillColor: [250, 250, 250] }
+        });
+        
+        yPosition = (doc as any).lastAutoTable.finalY + 8;
+      }
+      
+      // Canciones
+      if (suggestions.songs.length > 0) {
+        if (yPosition > 210) {
+          doc.addPage();
+          yPosition = 20;
+        }
+        
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(60, 60, 60);
+        doc.text(`Canciones Sugeridas (${suggestions.songs.length})`, 20, yPosition);
+        yPosition += 5;
+        
+        const songsData = suggestions.songs.map((song: any, idx: number) => [
+          `${idx + 1}`,
+          song.title,
+          song.artist
+        ]);
+        
+        autoTable(doc, {
+          startY: yPosition,
+          head: [['#', 'Título', 'Artista']],
+          body: songsData,
+          theme: 'plain',
+          headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
+          margin: { left: 20, right: 20 },
+          styles: { fontSize: 9, cellPadding: 3 },
+          alternateRowStyles: { fillColor: [250, 250, 250] }
+        });
+        
+        yPosition = (doc as any).lastAutoTable.finalY + 12;
+      }
+    };
+    
+    // Generar y agregar Teaser
+    if (teaserVersion) {
+      const teaserSuggestions = generateSuggestionsForVersion(teaserVersion);
+      addVersionSuggestions(teaserVersion, teaserSuggestions);
+    }
+    
+    // Generar y agregar Highlights (nueva página)
+    if (highlightsVersion) {
+      if (teaserVersion) {
+        doc.addPage();
+        yPosition = 20;
+      }
+      const highlightsSuggestions = generateSuggestionsForVersion(highlightsVersion);
+      addVersionSuggestions(highlightsVersion, highlightsSuggestions);
+    }
+    
+    // Footer en todas las páginas
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(180, 180, 180);
+      doc.text(
+        `Arrebol Weddings • ${new Date().toLocaleDateString('es-MX')}`,
+        pageWidth / 2,
+        doc.internal.pageSize.getHeight() - 10,
+        { align: 'center' }
+      );
+      doc.text(
+        `${i} / ${pageCount}`,
+        pageWidth - 20,
+        doc.internal.pageSize.getHeight() - 10,
+        { align: 'right' }
+      );
+    }
+    
+    // Guardar el PDF
+    const fileName = `${selectedProject.name}_Sugerencias.pdf`.replace(/\s+/g, '_');
+    doc.save(fileName);
   };
 
   // Filter and sort projects
@@ -592,6 +1099,21 @@ function App() {
   if (!isAuthenticated) {
     console.log('Rendering Login component - isAuthenticated:', isAuthenticated);
     return <Login onLogin={handleLogin} />;
+  }
+
+  // Si estamos cargando proyectos y hay un proyecto en la URL, mostrar loading
+  const hash = window.location.hash;
+  const hasProjectInUrl = hash.match(/^#\/project\/(\d+)$/);
+  
+  if (loadingProjects && hasProjectInUrl) {
+    return (
+      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mb-4"></div>
+          <p className="text-gray-600">Cargando proyecto...</p>
+        </div>
+      </div>
+    );
   }
 
   // Then check if project is selected
@@ -1064,7 +1586,7 @@ function App() {
           </div>
           
           {/* Suggestions Modal */}
-          {showSuggestions && activeVersion && (() => {
+          {showSuggestions && activeVersion && !activeVersion.name.toLowerCase().includes('full') && (() => {
             const totalSuggested = openingSuggestions.length + anchorOrder.length + closingSuggestions.length;
             
             return (
@@ -1081,12 +1603,25 @@ function App() {
                       Sugerencias para {activeVersion.name}
                     </h2>
                   </div>
-                  <button
-                    onClick={() => setSuggestionKey(prev => prev + 1)}
-                    className="px-3 py-1 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition"
-                  >
-                    Regenerar Sugerencias
-                  </button>
+                  <div className="flex gap-2">
+                    {userEmail === 'anthony@arrebolweddings.com' && (
+                      <button
+                        onClick={exportToPDF}
+                        className="px-3 py-1 text-sm bg-green-700 text-white rounded hover:bg-green-600 transition flex items-center gap-1"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Exportar PDF
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setSuggestionKey(prev => prev + 1)}
+                      className="px-3 py-1 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition"
+                    >
+                      Regenerar Sugerencias
+                    </button>
+                  </div>
                 </div>
                 
                 {suggestionsExpanded && (
@@ -1206,6 +1741,12 @@ function App() {
                 </div>
                 
                 {/* Sugerencias de Canciones */}
+                {(() => {
+                  console.log('🎸 Renderizando sección de canciones');
+                  console.log('  suggestedSongs:', suggestedSongs);
+                  console.log('  suggestedSongs.length:', suggestedSongs.length);
+                  return null;
+                })()}
                 {suggestedSongs.length > 0 && (
                   <div className="mt-8 pt-6 border-t border-stone-200">
                     <div className="flex items-center justify-between mb-4">

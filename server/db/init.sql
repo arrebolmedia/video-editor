@@ -47,7 +47,62 @@ CREATE TABLE IF NOT EXISTS scene_references (
   override_duration INTEGER
 );
 
+-- Contratos table
+CREATE TABLE IF NOT EXISTS contratos (
+  id SERIAL PRIMARY KEY,
+  project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+  client_name VARCHAR(255) NOT NULL,
+  client_email VARCHAR(255) NOT NULL,
+  client_phone VARCHAR(50),
+  client_address TEXT,
+  wedding_date DATE NOT NULL,
+  venue VARCHAR(255),
+  venue_address TEXT,
+  package_type VARCHAR(100) DEFAULT 'Básico',
+  coverage_hours INTEGER DEFAULT 10,
+  photographers_count INTEGER DEFAULT 1,
+  videographers_count INTEGER DEFAULT 1,
+  photos_quantity VARCHAR(50) DEFAULT '600-700',
+  deliverables TEXT[],
+  total_amount DECIMAL(10, 2) DEFAULT 0,
+  deposit_amount DECIMAL(10, 2) DEFAULT 0,
+  second_payment_date DATE,
+  travel_expenses BOOLEAN DEFAULT FALSE,
+  meals_count INTEGER DEFAULT 3,
+  deposit_paid BOOLEAN DEFAULT FALSE,
+  balance_paid BOOLEAN DEFAULT FALSE,
+  status VARCHAR(50) DEFAULT 'draft',
+  contract_date DATE DEFAULT CURRENT_DATE,
+  notes TEXT,
+  special_notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Recibos table
+CREATE TABLE IF NOT EXISTS recibos (
+  id SERIAL PRIMARY KEY,
+  contrato_id INTEGER REFERENCES contratos(id) ON DELETE SET NULL,
+  client_name VARCHAR(255) NOT NULL,
+  client_email VARCHAR(255),
+  receipt_number VARCHAR(100) NOT NULL UNIQUE,
+  amount DECIMAL(10, 2) NOT NULL,
+  payment_method VARCHAR(50) DEFAULT 'Transferencia',
+  payment_date DATE NOT NULL,
+  concept VARCHAR(100) DEFAULT 'Anticipo',
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_scenes_project ON scenes(project_id);
 CREATE INDEX IF NOT EXISTS idx_versions_project ON versions(project_id);
 CREATE INDEX IF NOT EXISTS idx_scene_refs_version ON scene_references(version_id);
+CREATE INDEX IF NOT EXISTS idx_contratos_project ON contratos(project_id);
+CREATE INDEX IF NOT EXISTS idx_contratos_status ON contratos(status);
+CREATE INDEX IF NOT EXISTS idx_contratos_wedding_date ON contratos(wedding_date);
+CREATE INDEX IF NOT EXISTS idx_contratos_client_email ON contratos(client_email);
+CREATE INDEX IF NOT EXISTS idx_recibos_contrato ON recibos(contrato_id);
+CREATE INDEX IF NOT EXISTS idx_recibos_receipt_number ON recibos(receipt_number);
+CREATE INDEX IF NOT EXISTS idx_recibos_payment_date ON recibos(payment_date);
+CREATE INDEX IF NOT EXISTS idx_recibos_client_email ON recibos(client_email);

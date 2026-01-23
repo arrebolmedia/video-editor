@@ -1,12 +1,16 @@
-const API_BASE_URL = '/editor-api';
+const API_BASE_URL = '/api';
 
 export const API = {
-  health: `${API_BASE_URL}/api/health`,
-  projects: `${API_BASE_URL}/api/projects`,
-  scenes: `${API_BASE_URL}/api/scenes`,
-  versions: `${API_BASE_URL}/api/versions`,
+  health: `${API_BASE_URL}/health`,
+  login: `${API_BASE_URL}/login`,
+  projects: `${API_BASE_URL}/projects`,
+  scenes: `${API_BASE_URL}/scenes`,
+  versions: `${API_BASE_URL}/versions`,
+  landings: `${API_BASE_URL}/landings`,
+  landingsPreview: `${API_BASE_URL}/landings/preview`,
+  landingsSeed: `${API_BASE_URL}/landings/seed`,
   
-  project: (id: number) => `${API_BASE_URL}/api/projects/${id}`,
-  projectScenes: (id: number) => `${API_BASE_URL}/api/projects/${id}/scenes`,
-  versionScenes: (id: number) => `${API_BASE_URL}/api/versions/${id}/scenes`,
+  project: (id: number) => `${API_BASE_URL}/projects/${id}`,
+  projectScenes: (id: number) => `${API_BASE_URL}/projects/${id}/scenes`,
+  versionScenes: (id: number) => `${API_BASE_URL}/versions/${id}/scenes`,
 };

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { API } from './config';
 
 interface LoginProps {
   onLogin: (email: string, name: string, role: string) => void;
@@ -16,7 +17,7 @@ export default function Login({ onLogin }: LoginProps) {
     setLoading(true);
     
     try {
-      const response = await fetch('/editor-api/login', {
+      const response = await fetch(API.login, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })

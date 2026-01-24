@@ -122,10 +122,22 @@ export default function ContratosModule() {
   const fetchContratos = async () => {
     try {
       const response = await fetch(`${API_BASE}/contratos`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const data = await response.json();
-      setContratos(data);
+      // Asegurar que data es un array
+      if (Array.isArray(data)) {
+        setContratos(data);
+      } else {
+        console.error('Data is not an array:', data);
+        setContratos([]);
+        toast.error('Error al cargar contratos');
+      }
     } catch (error) {
       console.error('Error fetching contratos:', error);
+      setContratos([]);
+      toast.error('No se pudieron cargar los contratos');
     }
   };
 

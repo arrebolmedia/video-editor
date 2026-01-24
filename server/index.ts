@@ -1467,20 +1467,44 @@ app.post('/api/landings/preview', async (req, res) => {
 });
 
 // Endpoint para obtener datos de preview
-app.get('/api/preview/:slug', (req, res) => {
+app.get('/api/preview/:slug', async (req, res) => {
   const { slug } = req.params;
   
-  try {
-    const previewData = memoryDB.previewData[slug];
-    
-    if (!previewData) {
-      return res.status(404).json({ error: 'Preview data not found' });
+  if (useMemoryStorage) {
+    try {
+      // Primero buscar en previewData (datos temporales de preview)
+      let previewData = memoryDB.previewData[slug];
+      
+      // Si no existe en previewData, buscar en landings
+      if (!previewData) {
+        previewData = memoryDB.landings.find((l: any) => l.slug === slug);
+      }
+      
+      if (!previewData) {
+        return res.status(404).json({ error: 'Preview data not found' });
+      }
+      
+      res.json(previewData);
+    } catch (error) {
+      console.error('Error fetching preview data:', error);
+      res.status(500).json({ error: 'Error al obtener datos de preview' });
     }
-    
-    res.json(previewData);
-  } catch (error) {
-    console.error('Error fetching preview data:', error);
-    res.status(500).json({ error: 'Error al obtener datos de preview' });
+  } else {
+    try {
+      const result = await pool.query(
+        'SELECT * FROM landings WHERE slug = $1',
+        [slug]
+      );
+      
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Preview data not found' });
+      }
+      
+      res.json(result.rows[0]);
+    } catch (error) {
+      console.error('Error fetching preview data:', error);
+      res.status(500).json({ error: 'Error al obtener datos de preview' });
+    }
   }
 });
 

@@ -1,5 +1,10 @@
 const API_BASE_URL = '/api';
 
+// Base URL for previews - uses current origin in production
+export const PREVIEW_BASE_URL = import.meta.env.DEV 
+  ? 'http://localhost:3000' 
+  : 'https://arrebolweddings.com';
+
 export const API = {
   health: `${API_BASE_URL}/health`,
   login: `${API_BASE_URL}/login`,

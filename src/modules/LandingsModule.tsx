@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '../hooks/useToast';
-import { API } from '../config';
+import { API, PREVIEW_BASE_URL } from '../config';
 
 interface Landing {
   id: number;
@@ -230,7 +230,7 @@ export default function LandingsModule() {
       const result = await response.json();
       
       // Abrir preview en nueva pestaña
-      window.open(`http://localhost:3000${result.previewUrl}`, '_blank');
+      window.open(`${PREVIEW_BASE_URL}${result.previewUrl}`, '_blank');
     } catch (error) {
       console.error('Error generating preview:', error);
       toast.error((error as Error).message);

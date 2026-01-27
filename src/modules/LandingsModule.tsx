@@ -412,7 +412,14 @@ export default function LandingsModule() {
 
               {/* Actions */}
               <div className="space-y-2 mt-4">
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => window.open(`https://arrebolweddings.com/${landing.slug}`, '_blank')}
+                    className="px-3 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors text-sm text-center flex items-center justify-center gap-1"
+                    title="Ver en producción"
+                  >
+                    <span>🌐</span>
+                  </button>
                   <button
                     onClick={() => handlePreview(landing)}
                     className="px-3 py-2 bg-[#8B5A6F] text-white rounded hover:bg-[#8B5A6F]/90 transition-colors text-sm text-center flex items-center justify-center gap-1"

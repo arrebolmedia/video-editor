@@ -372,7 +372,7 @@ export default function RecibosModule() {
             <div className="bg-white rounded-lg border border-stone-200 p-4">
               <div className="text-sm text-gray-600 mb-1">Total Recaudado</div>
               <div className="text-2xl font-bold text-green-600">
-                {formatCurrency(recibos.reduce((sum, r) => sum + r.amount, 0))}
+                {formatCurrency(recibos.reduce((sum, r) => sum + (Number(r.amount) || 0), 0))}
               </div>
             </div>
             <div className="bg-white rounded-lg border border-stone-200 p-4">
@@ -385,7 +385,7 @@ export default function RecibosModule() {
                       const now = new Date();
                       return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
                     })
-                    .reduce((sum, r) => sum + r.amount, 0)
+                    .reduce((sum, r) => sum + (Number(r.amount) || 0), 0)
                 )}
               </div>
             </div>

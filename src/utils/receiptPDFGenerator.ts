@@ -275,5 +275,19 @@ export function generateReceiptPDF(data: ReceiptData) {
   doc.text(`Generado el ${new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}`, pageWidth / 2, yPos, { align: 'center' });
 
   // Descargar PDF
-  doc.save(`${data.receipt_number}.pdf`);
+  // Remover acentos y caracteres especiales del nombre del cliente
+  const normalizeString = (str: string) => {
+    return str
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Remover acentos
+      .replace(/[^a-zA-Z0-9\s]/g, '') // Remover caracteres especiales
+      .trim()
+      .replace(/\s+/g, '-'); // Reemplazar espacios con guiones
+  };
+  
+  const clienteNormalizado = normalizeString(data.client_name);
+  const fechaFormato = data.payment_date.split('-').join(''); // YYYYMMDD
+  const nombreArchivo = `RECIBO-${fechaFormato}-${clienteNormalizado}.pdf`;
+  
+  doc.save(nombreArchivo);
 }

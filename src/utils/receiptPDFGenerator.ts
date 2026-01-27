@@ -157,7 +157,9 @@ export function generateReceiptPDF(data: ReceiptData) {
   doc.setFont('times', 'bold');
   doc.text('Fecha:', rightCol, yPos);
   doc.setFont('times', 'normal');
-  const fecha = new Date(data.payment_date + 'T00:00:00');
+  // Parsear fecha en formato YYYY-MM-DD como fecha local
+  const [year, month, day] = data.payment_date.split('-').map(Number);
+  const fecha = new Date(year, month - 1, day);
   const fechaTexto = fecha.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
   doc.text(fechaTexto, rightCol + 20, yPos);
   addSpace(8);
@@ -182,7 +184,9 @@ export function generateReceiptPDF(data: ReceiptData) {
     doc.setFont('times', 'bold');
     doc.text('Fecha del Evento:', leftCol, yPos);
     doc.setFont('times', 'normal');
-    const eventFecha = new Date(data.event_date + 'T00:00:00');
+    // Parsear fecha en formato YYYY-MM-DD como fecha local
+    const [eventYear, eventMonth, eventDay] = data.event_date.split('-').map(Number);
+    const eventFecha = new Date(eventYear, eventMonth - 1, eventDay);
     const eventFechaTexto = eventFecha.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
     doc.text(eventFechaTexto, leftCol + 40, yPos);
     addSpace(8);

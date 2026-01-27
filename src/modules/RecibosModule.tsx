@@ -142,6 +142,8 @@ export default function RecibosModule() {
   };
 
   const handleSave = async () => {
+    console.log('handleSave called, currentRecibo:', currentRecibo);
+    
     if (!currentRecibo.client_name || !currentRecibo.amount || !currentRecibo.receipt_number) {
       toast.warning('Por favor completa los campos obligatorios');
       return;
@@ -153,13 +155,24 @@ export default function RecibosModule() {
         ? `${API_BASE}/recibos/${currentRecibo.id}`
         : `${API_BASE}/recibos`;
 
+      console.log('Enviando a:', url, 'Método:', isEditing ? 'PUT' : 'POST');
+      console.log('Datos a enviar:', currentRecibo);
+
       const response = await fetch(url, {
         method: isEditing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(currentRecibo),
+      }).catch(err => {
+        console.error('Fetch error:', err);
+        throw err;
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
       if (response.ok) {
+        const responseData = await response.json();
+        console.log('Response data:', responseData);
         await fetchRecibos();
         setIsModalOpen(false);
         setCurrentRecibo({
@@ -169,7 +182,9 @@ export default function RecibosModule() {
         });
         toast.success(isEditing ? 'Recibo actualizado exitosamente' : 'Recibo creado exitosamente');
       } else {
-        toast.error('Error al guardar el recibo');
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('Error response:', errorData);
+        toast.error('Error al guardar el recibo: ' + (errorData.error || response.statusText));
       }
     } catch (error) {
       console.error('Error saving recibo:', error);
@@ -199,17 +214,27 @@ export default function RecibosModule() {
 
   const handleDownloadPDF = async (recibo: Recibo) => {
     try {
+      console.log('Datos del recibo para PDF:', {
+        payment_date: recibo.payment_date,
+        event_date: recibo.event_date,
+        recibo_completo: recibo
+      });
+      
+      // Normalizar fechas antes de enviar al generador
+      const payment_date = recibo.payment_date ? recibo.payment_date.split('T')[0] : '';
+      const event_date = recibo.event_date ? recibo.event_date.split('T')[0] : '';
+      
       generateReceiptPDF({
         receipt_number: recibo.receipt_number,
         client_name: recibo.client_name,
         client_email: recibo.client_email,
         amount: recibo.amount,
         payment_method: recibo.payment_method,
-        payment_date: recibo.payment_date,
+        payment_date: payment_date,
         concept: recibo.concept,
         notes: recibo.notes,
         venue: recibo.venue,
-        event_date: recibo.event_date,
+        event_date: event_date,
       });
       toast.success('PDF generado exitosamente');
     } catch (error) {

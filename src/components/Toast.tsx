@@ -32,7 +32,7 @@ export default function Toast({ message, type, onClose, duration = 5000 }: Toast
   };
 
   return (
-    <div className={`fixed top-4 right-4 z-50 max-w-md rounded-lg shadow-lg p-4 flex items-start gap-3 animate-slide-in ${styles[type]}`}>
+    <div className={`fixed top-4 right-4 z-[9999] max-w-md rounded-lg shadow-lg p-4 flex items-start gap-3 animate-slide-in ${styles[type]}`}>
       <div className="text-xl font-bold">{icons[type]}</div>
       <div className="flex-1 text-sm whitespace-pre-line">{message}</div>
       <button

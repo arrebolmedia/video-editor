@@ -158,9 +158,17 @@ export function generateReceiptPDF(data: ReceiptData) {
   doc.text('Fecha:', rightCol, yPos);
   doc.setFont('times', 'normal');
   // Parsear fecha en formato YYYY-MM-DD como fecha local
-  const [year, month, day] = data.payment_date.split('-').map(Number);
-  const fecha = new Date(year, month - 1, day);
-  const fechaTexto = fecha.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
+  let fechaTexto = 'Invalid Date';
+  if (data.payment_date) {
+    const dateStr = data.payment_date.includes('T') ? data.payment_date.split('T')[0] : data.payment_date;
+    const [year, month, day] = dateStr.split('-').map(Number);
+    if (year && month && day) {
+      const fecha = new Date(year, month - 1, day);
+      if (!isNaN(fecha.getTime())) {
+        fechaTexto = fecha.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
+      }
+    }
+  }
   doc.text(fechaTexto, rightCol + 20, yPos);
   addSpace(8);
 
@@ -185,9 +193,15 @@ export function generateReceiptPDF(data: ReceiptData) {
     doc.text('Fecha del Evento:', leftCol, yPos);
     doc.setFont('times', 'normal');
     // Parsear fecha en formato YYYY-MM-DD como fecha local
-    const [eventYear, eventMonth, eventDay] = data.event_date.split('-').map(Number);
-    const eventFecha = new Date(eventYear, eventMonth - 1, eventDay);
-    const eventFechaTexto = eventFecha.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
+    let eventFechaTexto = 'Invalid Date';
+    const eventDateStr = data.event_date.includes('T') ? data.event_date.split('T')[0] : data.event_date;
+    const [eventYear, eventMonth, eventDay] = eventDateStr.split('-').map(Number);
+    if (eventYear && eventMonth && eventDay) {
+      const eventFecha = new Date(eventYear, eventMonth - 1, eventDay);
+      if (!isNaN(eventFecha.getTime())) {
+        eventFechaTexto = eventFecha.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
+      }
+    }
     doc.text(eventFechaTexto, leftCol + 40, yPos);
     addSpace(8);
   }

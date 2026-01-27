@@ -106,7 +106,13 @@ export default function RecibosModule() {
 
   const handleEdit = (recibo: Recibo) => {
     setIsEditing(true);
-    setCurrentRecibo(recibo);
+    // Asegurar que las fechas estén en formato YYYY-MM-DD para los inputs
+    const reciboEditado = {
+      ...recibo,
+      payment_date: recibo.payment_date ? recibo.payment_date.split('T')[0] : '',
+      event_date: recibo.event_date ? recibo.event_date.split('T')[0] : ''
+    };
+    setCurrentRecibo(reciboEditado);
     setIsModalOpen(true);
   };
 

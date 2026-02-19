@@ -1873,12 +1873,13 @@ app.post('/api/contratos', async (req, res) => {
     status,
     contract_date,
     notes,
-    special_notes
+    special_notes,
+    discount_percentage
   } = req.body;
 
   if (useMemoryStorage) {
     if (!memoryDB.contratos) memoryDB.contratos = [];
-    
+
     const newContrato = {
       id: memoryDB.contratos.length + 1,
       project_id: project_id || null,
@@ -1906,10 +1907,11 @@ app.post('/api/contratos', async (req, res) => {
       contract_date: contract_date || new Date().toISOString().split('T')[0],
       notes: notes || '',
       special_notes: special_notes || '',
+      discount_percentage: discount_percentage || 0,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
-    
+
     memoryDB.contratos.push(newContrato);
     res.json(newContrato);
   } else {
@@ -1919,9 +1921,9 @@ app.post('/api/contratos', async (req, res) => {
           project_id, client_name, client_email, client_phone, client_address,
           wedding_date, venue, venue_address, package_type, coverage_hours,
           photographers_count, videographers_count, photos_quantity, deliverables,
-          total_amount, deposit_amount, second_payment_date, travel_expenses, meals_count,
+          total_amount, discount_percentage, deposit_amount, second_payment_date, travel_expenses, meals_count,
           deposit_paid, balance_paid, status, contract_date, notes, special_notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
         RETURNING *`,
         [
           project_id || null,
@@ -1939,6 +1941,7 @@ app.post('/api/contratos', async (req, res) => {
           photos_quantity || '600-700',
           deliverables || [],
           total_amount || 0,
+          discount_percentage || 0,
           deposit_amount || 0,
           second_payment_date || null,
           travel_expenses || false,
@@ -1978,6 +1981,7 @@ app.put('/api/contratos/:id', async (req, res) => {
     photos_quantity,
     deliverables,
     total_amount,
+    discount_percentage,
     deposit_amount,
     second_payment_date,
     travel_expenses,
@@ -2015,6 +2019,7 @@ app.put('/api/contratos/:id', async (req, res) => {
       photos_quantity: photos_quantity || '600-700',
       deliverables: deliverables || [],
       total_amount: total_amount || 0,
+      discount_percentage: discount_percentage || 0,
       deposit_amount: deposit_amount || 0,
       second_payment_date: second_payment_date || null,
       travel_expenses: travel_expenses || false,
@@ -2037,11 +2042,11 @@ app.put('/api/contratos/:id', async (req, res) => {
           client_address = $5, wedding_date = $6, venue = $7, venue_address = $8,
           package_type = $9, coverage_hours = $10, photographers_count = $11,
           videographers_count = $12, photos_quantity = $13, deliverables = $14,
-          total_amount = $15, deposit_amount = $16, second_payment_date = $17,
-          travel_expenses = $18, meals_count = $19, deposit_paid = $20,
-          balance_paid = $21, status = $22, contract_date = $23, notes = $24,
-          special_notes = $25, updated_at = NOW()
-        WHERE id = $26
+          total_amount = $15, discount_percentage = $16, deposit_amount = $17, second_payment_date = $18,
+          travel_expenses = $19, meals_count = $20, deposit_paid = $21,
+          balance_paid = $22, status = $23, contract_date = $24, notes = $25,
+          special_notes = $26, updated_at = NOW()
+        WHERE id = $27
         RETURNING *`,
         [
           project_id || null,
@@ -2059,6 +2064,7 @@ app.put('/api/contratos/:id', async (req, res) => {
           photos_quantity || '600-700',
           deliverables || [],
           total_amount || 0,
+          discount_percentage || 0,
           deposit_amount || 0,
           second_payment_date || null,
           travel_expenses || false,

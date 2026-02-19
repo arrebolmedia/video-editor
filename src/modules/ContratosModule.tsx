@@ -20,6 +20,7 @@ interface Contrato {
   photos_quantity?: string;
   deliverables: string[];
   total_amount: number;
+  discount_percentage?: number;
   deposit_amount: number;
   second_payment_date?: string;
   travel_expenses: boolean;
@@ -183,8 +184,12 @@ export default function ContratosModule() {
     }
     
     setCurrentContrato({ ...contrato, second_payment_date: secondPaymentDate });
-    setBaseAmount(contrato.total_amount || 0);
-    setDiscountPercentage(0);
+    const discount = contrato.discount_percentage || 0;
+    const base = discount > 0
+      ? Math.round((contrato.total_amount || 0) / (1 - discount / 100))
+      : (contrato.total_amount || 0);
+    setDiscountPercentage(discount);
+    setBaseAmount(base);
     setDepositPercentage(Math.round(((contrato.deposit_amount || 0) / (contrato.total_amount || 1)) * 100));
     setIsModalOpen(true);
   };
@@ -209,7 +214,7 @@ export default function ContratosModule() {
       const response = await fetch(url, {
         method: isEditing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(currentContrato),
+        body: JSON.stringify({ ...currentContrato, discount_percentage: discountPercentage }),
       });
 
       if (response.ok) {
@@ -376,7 +381,7 @@ export default function ContratosModule() {
                       </div>
                     </td>
                     <td className="p-4 text-gray-600">
-                      {new Date(contrato.wedding_date).toLocaleDateString('es-MX', {
+                      {new Date(contrato.wedding_date + 'T00:00:00').toLocaleDateString('es-MX', {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric',

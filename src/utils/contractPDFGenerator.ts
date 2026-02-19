@@ -24,6 +24,16 @@ const BANK_NAME = 'BANORTE';
 const BANK_ACCOUNT = '0298412002';
 const BANK_CLABE = '072540002984120026';
 
+const parseDateLocal = (dateStr: string): Date => {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
+
+const formatDateEs = (dateStr: string): string => {
+  const d = parseDateLocal(dateStr);
+  return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
+};
+
 export function generateContractPDF(data: ContratoData): void {
   const doc = new jsPDF({ format: 'letter' }); // Tamaño carta
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -206,7 +216,7 @@ export function generateContractPDF(data: ContratoData): void {
   addSpace(3);
   
   addJustifiedTextWithBold(
-    `1. Ser una persona física quien se identifica bajo el nombre de ${data.client_name.toUpperCase()}, que se identifica con credencial de elector, y manifiesta tener domicilio en ${data.client_address}. Desea hacer uso de los servicios de EL PROVEEDOR para desempeñar la actividad de Fotografía y Video Profesional en el evento social a celebrarse el día ${new Date(data.wedding_date).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })} en ${data.venue}, ubicada en ${data.venue_address}. Considerando EL PROVEEDOR y EL CLIENTE en mutuo acuerdo las siguientes:`,
+    `1. Ser una persona física quien se identifica bajo el nombre de ${data.client_name.toUpperCase()}, que se identifica con credencial de elector, y manifiesta tener domicilio en ${data.client_address}. Desea hacer uso de los servicios de EL PROVEEDOR para desempeñar la actividad de Fotografía y Video Profesional en el evento social a celebrarse el día ${formatDateEs(data.wedding_date)} en ${data.venue}, ubicada en ${data.venue_address}. Considerando EL PROVEEDOR y EL CLIENTE en mutuo acuerdo las siguientes:`,
     [data.venue],
     10
   );
@@ -290,15 +300,14 @@ export function generateContractPDF(data: ContratoData): void {
   );
   addSpace(3);
   
-  // Calcular fecha del segundo pago: 15 días antes del evento
+  // Fecha del segundo pago: usar la del contrato o calcular 15 días antes del evento
   let secondPaymentDateText = 'a definir';
-  if (data.wedding_date) {
-    const eventDate = new Date(data.wedding_date + 'T00:00:00');
-    if (!isNaN(eventDate.getTime())) {
-      const secondPaymentDate = new Date(eventDate);
-      secondPaymentDate.setDate(secondPaymentDate.getDate() - 15);
-      secondPaymentDateText = secondPaymentDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
-    }
+  if (data.second_payment_date) {
+    secondPaymentDateText = formatDateEs(data.second_payment_date);
+  } else if (data.wedding_date) {
+    const secondPaymentDate = parseDateLocal(data.wedding_date);
+    secondPaymentDate.setDate(secondPaymentDate.getDate() - 15);
+    secondPaymentDateText = secondPaymentDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
   }
   
   addJustifiedTextWithBold(
@@ -380,7 +389,7 @@ export function generateContractPDF(data: ContratoData): void {
   doc.text('EL PROVEEDOR', pageWidth - margin - 35, y, { align: 'center' });
 
   // Guardar PDF con fecha del evento
-  const weddingDate = new Date(data.wedding_date).toISOString().split('T')[0];
+  const weddingDate = data.wedding_date;
   const fileName = `Contrato_${data.client_name.replace(/\s+/g, '_')}_${weddingDate}.pdf`;
   doc.save(fileName);
 }

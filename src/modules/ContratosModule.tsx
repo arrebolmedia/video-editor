@@ -128,7 +128,14 @@ export default function ContratosModule() {
       const data = await response.json();
       // Asegurar que data es un array
       if (Array.isArray(data)) {
-        setContratos(data);
+        const normalizeDate = (d: string | undefined) => d ? d.split('T')[0] : undefined;
+        const normalized = data.map((c: Contrato) => ({
+          ...c,
+          wedding_date: normalizeDate(c.wedding_date) as string,
+          second_payment_date: normalizeDate(c.second_payment_date),
+          contract_date: normalizeDate(c.contract_date) as string,
+        }));
+        setContratos(normalized);
       } else {
         console.error('Data is not an array:', data);
         setContratos([]);

@@ -1916,26 +1916,39 @@ app.post('/api/contratos', async (req, res) => {
     try {
       const result = await pool.query(
         `INSERT INTO contratos (
-          project_id, client_name, client_email, client_phone, wedding_date, 
-          venue, package_type, total_amount, deposit_amount, deposit_paid, 
-          balance_paid, status, contract_date, notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+          project_id, client_name, client_email, client_phone, client_address,
+          wedding_date, venue, venue_address, package_type, coverage_hours,
+          photographers_count, videographers_count, photos_quantity, deliverables,
+          total_amount, deposit_amount, second_payment_date, travel_expenses, meals_count,
+          deposit_paid, balance_paid, status, contract_date, notes, special_notes
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
         RETURNING *`,
         [
           project_id || null,
           client_name,
-          client_email,
+          client_email || '',
           client_phone || '',
+          client_address || '',
           wedding_date,
           venue || '',
-          package_type || 'Básico',
+          venue_address || '',
+          package_type || 'Colección Uno',
+          coverage_hours || 10,
+          photographers_count || 1,
+          videographers_count || 1,
+          photos_quantity || '600-700',
+          deliverables || [],
           total_amount || 0,
           deposit_amount || 0,
+          second_payment_date || null,
+          travel_expenses || false,
+          meals_count || 3,
           deposit_paid || false,
           balance_paid || false,
           status || 'draft',
           contract_date || new Date().toISOString().split('T')[0],
-          notes || ''
+          notes || '',
+          special_notes || ''
         ]
       );
       res.json(result.rows[0]);
@@ -2019,36 +2032,51 @@ app.put('/api/contratos/:id', async (req, res) => {
   } else {
     try {
       const result = await pool.query(
-        `UPDATE contratos SET 
-          project_id = $1, client_name = $2, client_email = $3, client_phone = $4, 
-          wedding_date = $5, venue = $6, package_type = $7, total_amount = $8, 
-          deposit_amount = $9, deposit_paid = $10, balance_paid = $11, status = $12, 
-          contract_date = $13, notes = $14, updated_at = NOW()
-        WHERE id = $15
+        `UPDATE contratos SET
+          project_id = $1, client_name = $2, client_email = $3, client_phone = $4,
+          client_address = $5, wedding_date = $6, venue = $7, venue_address = $8,
+          package_type = $9, coverage_hours = $10, photographers_count = $11,
+          videographers_count = $12, photos_quantity = $13, deliverables = $14,
+          total_amount = $15, deposit_amount = $16, second_payment_date = $17,
+          travel_expenses = $18, meals_count = $19, deposit_paid = $20,
+          balance_paid = $21, status = $22, contract_date = $23, notes = $24,
+          special_notes = $25, updated_at = NOW()
+        WHERE id = $26
         RETURNING *`,
         [
           project_id || null,
           client_name,
-          client_email,
+          client_email || '',
           client_phone || '',
+          client_address || '',
           wedding_date,
           venue || '',
-          package_type || 'Básico',
+          venue_address || '',
+          package_type || 'Colección Uno',
+          coverage_hours || 10,
+          photographers_count || 1,
+          videographers_count || 1,
+          photos_quantity || '600-700',
+          deliverables || [],
           total_amount || 0,
           deposit_amount || 0,
+          second_payment_date || null,
+          travel_expenses || false,
+          meals_count || 3,
           deposit_paid || false,
           balance_paid || false,
           status || 'draft',
           contract_date || new Date().toISOString().split('T')[0],
           notes || '',
+          special_notes || '',
           id
         ]
       );
-      
+
       if (result.rows.length === 0) {
         return res.status(404).json({ error: 'Contrato no encontrado' });
       }
-      
+
       res.json(result.rows[0]);
     } catch (error) {
       console.error('Error updating contrato:', error);

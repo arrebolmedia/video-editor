@@ -15,6 +15,7 @@ interface ContratoData {
   second_payment_date: string;
   meals_count: number;
   contract_date: string;
+  service_type?: 'both' | 'photo_only' | 'video_only';
 }
 
 const PROVIDER_NAME = 'ANTHONY CAZARES';
@@ -34,7 +35,31 @@ const formatDateEs = (dateStr: string): string => {
   return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
 };
 
+const getServiceLabel = (type?: 'both' | 'photo_only' | 'video_only'): { activity: string; packageLabel: string; servicesLabel: string } => {
+  switch (type) {
+    case 'photo_only':
+      return {
+        activity: 'Fotografía Profesional',
+        packageLabel: 'Paquete de Fotografía con las siguientes características:',
+        servicesLabel: 'fotografía',
+      };
+    case 'video_only':
+      return {
+        activity: 'Video Profesional',
+        packageLabel: 'Paquete de Videografía con las siguientes características:',
+        servicesLabel: 'video',
+      };
+    default:
+      return {
+        activity: 'Fotografía y Video Profesional',
+        packageLabel: 'Paquete de Fotografía y Videografía con las siguientes características:',
+        servicesLabel: 'fotografía y video',
+      };
+  }
+};
+
 export function generateContractPDF(data: ContratoData): void {
+  const serviceLabel = getServiceLabel(data.service_type);
   const doc = new jsPDF({ format: 'letter' }); // Tamaño carta
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 28.35; // 1 cm en puntos (mitad de 2 cm)
@@ -209,14 +234,14 @@ export function generateContractPDF(data: ContratoData): void {
   addText(`1. Llamarse ${PROVIDER_NAME}, quien se identifica con credencial de elector, ser de nacionalidad mexicana con domicilio en ${PROVIDER_ADDRESS}. Manifiesta ser persona física y representante legal de la marca ${PROVIDER_COMPANY}.`, 10, false, 'justify');
   addSpace(3);
   
-  addText('2. Que cuenta con elementos propios, suficientes y capacidad profesional necesaria para cumplir las actividades profesionales que se le encomienden, por lo que está en condiciones de obligarse en este contrato para prestar sus servicios de fotografía a EL CLIENTE.', 10, false, 'justify');
+  addText(`2. Que cuenta con elementos propios, suficientes y capacidad profesional necesaria para cumplir las actividades profesionales que se le encomienden, por lo que está en condiciones de obligarse en este contrato para prestar sus servicios de ${serviceLabel.servicesLabel} a EL CLIENTE.`, 10, false, 'justify');
   addSpace(5);
 
   addText('B) Declara EL CLIENTE:', 10, true);
   addSpace(3);
   
   addJustifiedTextWithBold(
-    `1. Ser una persona física quien se identifica bajo el nombre de ${data.client_name.toUpperCase()}, que se identifica con credencial de elector, y manifiesta tener domicilio en ${data.client_address}. Desea hacer uso de los servicios de EL PROVEEDOR para desempeñar la actividad de Fotografía y Video Profesional en el evento social a celebrarse el día ${formatDateEs(data.wedding_date)} en ${data.venue}, ubicada en ${data.venue_address}. Considerando EL PROVEEDOR y EL CLIENTE en mutuo acuerdo las siguientes:`,
+    `1. Ser una persona física quien se identifica bajo el nombre de ${data.client_name.toUpperCase()}, que se identifica con credencial de elector, y manifiesta tener domicilio en ${data.client_address}. Desea hacer uso de los servicios de EL PROVEEDOR para desempeñar la actividad de ${serviceLabel.activity} en el evento social a celebrarse el día ${formatDateEs(data.wedding_date)} en ${data.venue}, ubicada en ${data.venue_address}. Considerando EL PROVEEDOR y EL CLIENTE en mutuo acuerdo las siguientes:`,
     [data.venue],
     10
   );
@@ -232,7 +257,7 @@ export function generateContractPDF(data: ContratoData): void {
   addText('PRIMERA. - Sobre las características del servicio: en virtud del presente contrato, EL PROVEEDOR se obliga a prestar a EL CLIENTE el siguiente servicio:', 10, false, 'justify');
   addSpace(3);
   
-  addText('Paquete de Fotografía y Videografía con las siguientes características:', 10, false, 'justify');
+  addText(serviceLabel.packageLabel, 10, false, 'justify');
   addSpace(3);
   
   if (data.deliverables && data.deliverables.length > 0) {

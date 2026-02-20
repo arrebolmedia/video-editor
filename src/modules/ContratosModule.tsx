@@ -32,6 +32,7 @@ interface Contrato {
   signed_contract_file?: string;
   notes?: string;
   special_notes?: string;
+  service_type?: 'both' | 'photo_only' | 'video_only';
   created_at: string;
   updated_at: string;
 }
@@ -64,6 +65,7 @@ export default function ContratosModule() {
     deliverables: ['8 horas de cobertura', '1 fotógrafo', '400-500 fotografías', 'Galería digital', '1 videógrafo', 'Video de 20-25 minutos', 'Versión 1 minuto'],
     travel_expenses: false,
     meals_count: 3,
+    service_type: 'both',
   });
   const [loading, setLoading] = useState(false);
 
@@ -164,6 +166,7 @@ export default function ContratosModule() {
       deliverables: ['8 horas de cobertura', '1 fotógrafo', '400-500 fotografías', 'Galería digital', '1 videógrafo', 'Video de 20-25 minutos', 'Versión 1 minuto'],
       travel_expenses: false,
       meals_count: 3,
+      service_type: 'both',
       contract_date: new Date().toISOString().split('T')[0],
     });
     setBaseAmount(59000);
@@ -257,6 +260,7 @@ export default function ContratosModule() {
         second_payment_date: contrato.second_payment_date || '',
         meals_count: contrato.meals_count || 0,
         contract_date: contrato.contract_date,
+        service_type: contrato.service_type || 'both',
       });
       toast.success('PDF generado exitosamente');
     } catch (error) {
@@ -609,6 +613,33 @@ export default function ContratosModule() {
                     placeholder="Dirección completa del evento"
                     className="w-full px-4 py-3 bg-white border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-700"
                   />
+                </div>
+              </div>
+
+              {/* Service Type */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tipo de Servicio
+                </label>
+                <div className="flex gap-2">
+                  {[
+                    { value: 'both', label: 'Foto y Video' },
+                    { value: 'photo_only', label: 'Solo Fotografía' },
+                    { value: 'video_only', label: 'Solo Video' },
+                  ].map(({ value, label }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setCurrentContrato({ ...currentContrato, service_type: value as 'both' | 'photo_only' | 'video_only' })}
+                      className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition ${
+                        (currentContrato.service_type || 'both') === value
+                          ? 'bg-gray-800 text-white border-gray-800'
+                          : 'bg-white text-gray-700 border-stone-300 hover:border-gray-400'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
               </div>
 

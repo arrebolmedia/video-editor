@@ -1922,8 +1922,8 @@ app.post('/api/contratos', async (req, res) => {
           wedding_date, venue, venue_address, package_type, coverage_hours,
           photographers_count, videographers_count, photos_quantity, deliverables,
           total_amount, discount_percentage, deposit_amount, second_payment_date, travel_expenses, meals_count,
-          deposit_paid, balance_paid, status, contract_date, notes, special_notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
+          deposit_paid, balance_paid, status, contract_date, notes, special_notes, service_type
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
         RETURNING *`,
         [
           project_id || null,
@@ -1951,7 +1951,8 @@ app.post('/api/contratos', async (req, res) => {
           status || 'draft',
           contract_date || new Date().toISOString().split('T')[0],
           notes || '',
-          special_notes || ''
+          special_notes || '',
+          service_type || 'both'
         ]
       );
       res.json(result.rows[0]);
@@ -1991,7 +1992,8 @@ app.put('/api/contratos/:id', async (req, res) => {
     status,
     contract_date,
     notes,
-    special_notes
+    special_notes,
+    service_type
   } = req.body;
 
   if (useMemoryStorage) {
@@ -2030,6 +2032,7 @@ app.put('/api/contratos/:id', async (req, res) => {
       contract_date: contract_date || new Date().toISOString().split('T')[0],
       notes: notes || '',
       special_notes: special_notes || '',
+      service_type: service_type || 'both',
       updated_at: new Date().toISOString()
     };
     
@@ -2045,8 +2048,8 @@ app.put('/api/contratos/:id', async (req, res) => {
           total_amount = $15, discount_percentage = $16, deposit_amount = $17, second_payment_date = $18,
           travel_expenses = $19, meals_count = $20, deposit_paid = $21,
           balance_paid = $22, status = $23, contract_date = $24, notes = $25,
-          special_notes = $26, updated_at = NOW()
-        WHERE id = $27
+          special_notes = $26, service_type = $27, updated_at = NOW()
+        WHERE id = $28
         RETURNING *`,
         [
           project_id || null,
@@ -2075,6 +2078,7 @@ app.put('/api/contratos/:id', async (req, res) => {
           contract_date || new Date().toISOString().split('T')[0],
           notes || '',
           special_notes || '',
+          service_type || 'both',
           id
         ]
       );

@@ -301,7 +301,7 @@ export function generateContractPDF(data: ContratoData): void {
   addText('SEGUNDA. - EL CLIENTE autoriza a EL PROVEEDOR a utilizar el material con fines de mercadotecnia o publicidad. El material no podrá ser vendido a alguien que no sea EL CLIENTE.', 10, false, 'justify');
   addSpace(5);
 
-  addText('SEGUNDA BIS. - El tiempo de entrega del material en formato digital se estima en cuatro y seis semanas.', 10, false, 'justify');
+  addText('SEGUNDA BIS. - El tiempo de entrega del material en formato digital se estima en seis y ocho semanas.', 10, false, 'justify');
   addSpace(5);
 
   checkPageBreak(30);

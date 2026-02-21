@@ -1874,7 +1874,8 @@ app.post('/api/contratos', async (req, res) => {
     contract_date,
     notes,
     special_notes,
-    discount_percentage
+    discount_percentage,
+    service_type
   } = req.body;
 
   if (useMemoryStorage) {
@@ -1908,6 +1909,7 @@ app.post('/api/contratos', async (req, res) => {
       notes: notes || '',
       special_notes: special_notes || '',
       discount_percentage: discount_percentage || 0,
+      service_type: service_type || 'both',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };

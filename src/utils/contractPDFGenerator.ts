@@ -298,6 +298,9 @@ export function generateContractPDF(data: ContratoData): void {
   addText('PRIMERA BIS. - EL CLIENTE autoriza a EL PROVEEDOR a subcontratar al personal o equipo necesario para cumplir con las obligaciones presentadas en la cláusula anterior.', 10, false, 'justify');
   addSpace(5);
 
+  addText('PRIMERA TER. - EL CLIENTE reconoce y acepta el estilo visual y narrativo de EL PROVEEDOR, habiendo revisado su portafolio previo a la contratación. Las decisiones creativas quedan a criterio del equipo de EL PROVEEDOR.', 10, false, 'justify');
+  addSpace(5);
+
   addText('SEGUNDA. - EL CLIENTE autoriza a EL PROVEEDOR a utilizar el material con fines de mercadotecnia o publicidad. El material no podrá ser vendido a alguien que no sea EL CLIENTE.', 10, false, 'justify');
   addSpace(5);
 

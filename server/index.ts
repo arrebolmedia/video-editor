@@ -5,6 +5,7 @@ import { pool, useMemoryStorage } from './db/connection.js';
 import { defaultWeddingScenes } from './defaultScenes.js';
 import fs from 'fs';
 import path from 'path';
+import { exec } from 'child_process';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -790,20 +791,21 @@ app.post('/api/versions/:versionId/scenes', async (req, res) => {
 app.post('/api/versions/:versionId/suggestions', async (req, res) => {
   try {
     const versionId = parseInt(req.params.versionId);
-    const { songs, openingScenes, closingScenes } = req.body;
-    
+    const { songs, openingScenes, closingScenes, anchorScenes } = req.body;
+
     if (useMemoryStorage) {
       const version = memoryDB.versions.find((v: any) => v.id === versionId);
       if (version) {
         version.suggested_songs = songs || [];
         version.suggested_opening_scenes = openingScenes || [];
         version.suggested_closing_scenes = closingScenes || [];
+        version.suggested_anchor_scenes = anchorScenes || [];
       }
       res.json({ success: true });
     } else {
       await pool.query(
-        'UPDATE versions SET suggested_songs = $1, suggested_opening_scenes = $2, suggested_closing_scenes = $3 WHERE id = $4',
-        [JSON.stringify(songs || []), JSON.stringify(openingScenes || []), JSON.stringify(closingScenes || []), versionId]
+        'UPDATE versions SET suggested_songs = $1, suggested_opening_scenes = $2, suggested_closing_scenes = $3, suggested_anchor_scenes = $4 WHERE id = $5',
+        [JSON.stringify(songs || []), JSON.stringify(openingScenes || []), JSON.stringify(closingScenes || []), JSON.stringify(anchorScenes || []), versionId]
       );
       res.json({ success: true });
     }
@@ -1421,20 +1423,41 @@ export default function ${landing.slug.split('-').map((w: string) => w.charAt(0)
     // Escribir archivos
     fs.writeFileSync(path.join(landingPath, 'page.tsx'), pageContent);
     fs.writeFileSync(path.join(landingPath, 'layout.tsx'), layoutContent);
-    
-    res.json({ 
-      success: true, 
-      message: `✅ Archivos generados exitosamente para "${landing.title}"\n\nArchivos creados:\n- app/${landing.slug}/page.tsx\n- app/${landing.slug}/layout.tsx\n\n¡Recuerda hacer commit de los cambios!`,
+
+    // Responder inmediatamente y hacer deploy en background
+    res.json({
+      success: true,
+      message: `Archivos generados. Iniciando deploy a producción...`,
       files: [
         `app/${landing.slug}/page.tsx`,
         `app/${landing.slug}/layout.tsx`
-      ]
+      ],
+      deploying: true
     });
+
+    // Deploy en background (no bloqueante)
+    const webArrebolRepoPath = path.join(process.cwd(), '..', 'Web-Arrebol', 'arrebol-weddings-site');
+    const commitMessage = `Landing: ${landing.title}`;
+    const sshDeploy = `cd /var/www/arrebolweddings.com && git pull origin master && docker-compose build --no-cache && docker-compose down && docker-compose up -d && docker image prune -f`;
+
+    const deployCmd = `cd "${webArrebolRepoPath}" && git add "app/${landing.slug}/" && git commit -m "${commitMessage}" && git push origin master && ssh root@data.arrebolweddings.com "${sshDeploy}"`;
+
+    console.log(`[Deploy] Iniciando deploy para landing: ${landing.slug}`);
+    exec(deployCmd, { shell: 'bash' }, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`[Deploy] Error:`, error.message);
+        console.error(`[Deploy] stderr:`, stderr);
+      } else {
+        console.log(`[Deploy] ✅ Deploy completado para: ${landing.slug}`);
+        console.log(`[Deploy] stdout:`, stdout);
+      }
+    });
+
   } catch (error) {
     console.error('Error generating landing files:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Error al generar archivos de landing',
-      details: (error as Error).message 
+      details: (error as Error).message
     });
   }
 });

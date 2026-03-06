@@ -192,6 +192,7 @@ export default function LandingsModule() {
 
   const handleGenerate = async (landing: Landing) => {
     try {
+      toast.info(`Generando y desplegando "${landing.title}"...`);
       const response = await fetch(`/api/landings/${landing.id}/generate`, {
         method: 'POST',
       });
@@ -202,7 +203,7 @@ export default function LandingsModule() {
       }
 
       const result = await response.json();
-      toast.success(`✅ ${result.message}`);
+      toast.success(`🚀 Deploy iniciado para "${landing.title}". Estará disponible en producción en ~3 min.`);
     } catch (error) {
       console.error('Error generating files:', error);
       toast.error((error as Error).message);
@@ -617,7 +618,7 @@ export default function LandingsModule() {
                 {currentLanding.hero_image && (
                   <div className="mb-3 w-full h-32 rounded border border-[#E8E3DD] overflow-hidden">
                     <img 
-                      src={`http://localhost:3000${currentLanding.hero_image}`}
+                      src={`${PREVIEW_BASE_URL}${currentLanding.hero_image}`}
                       alt="Preview"
                       className="w-full h-full object-cover"
                       onError={(e) => {
@@ -652,7 +653,7 @@ export default function LandingsModule() {
                           }`}
                         >
                           <img
-                            src={`http://localhost:3000${img}`}
+                            src={`${PREVIEW_BASE_URL}${img}`}
                             alt=""
                             className="w-full h-full object-cover"
                             onError={(e) => {

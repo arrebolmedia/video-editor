@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const API_BASE = '/api';
 
@@ -35,6 +35,7 @@ interface Version {
   suggested_songs?: Array<{title: string, artist: string, mood: string, tempo: string}>;
   suggested_opening_scenes?: Scene[];
   suggested_closing_scenes?: Scene[];
+  suggested_anchor_scenes?: Scene[];
 }
 
 interface User {
@@ -93,7 +94,7 @@ function VideosModule({ userEmail, userName, userRole }: VideosModuleProps) {
   const [openingSuggestions, setOpeningSuggestions] = useState<Scene[]>([]);
   const [anchorOrder, setAnchorOrder] = useState<Scene[]>([]);
   const [closingSuggestions, setClosingSuggestions] = useState<Scene[]>([]);
-  const [suggestionsLoaded, setSuggestionsLoaded] = useState(false);
+  const suggestionsLoadedRef = useRef(false);
   const [suggestedSongs, setSuggestedSongs] = useState<Array<{title: string, artist: string, mood: string, tempo: string}>>([]);
   const [suggestionsExpanded, setSuggestionsExpanded] = useState(true);
   
@@ -102,8 +103,6 @@ function VideosModule({ userEmail, userName, userRole }: VideosModuleProps) {
     { title: 'At Last', artist: 'Etta James', mood: 'classic', tempo: 'slow' },
     { title: 'L-O-V-E', artist: 'Nat King Cole', mood: 'classic', tempo: 'medium' },
     { title: 'My Girl', artist: 'The Temptations', mood: 'classic', tempo: 'medium' },
-    { title: 'My Way', artist: 'Frank Sinatra', mood: 'classic', tempo: 'medium' },
-    { title: "That's Life", artist: 'Frank Sinatra', mood: 'classic', tempo: 'medium' },
     { title: 'I Say a Little Prayer', artist: 'Aretha Franklin', mood: 'classic', tempo: 'medium' },
     { title: "Can't Take My Eyes off You", artist: 'Frankie Valli', mood: 'romantic', tempo: 'medium' },
     { title: 'Stand By Me', artist: 'Ben E. King', mood: 'classic', tempo: 'slow' },
@@ -114,7 +113,6 @@ function VideosModule({ userEmail, userName, userRole }: VideosModuleProps) {
     { title: 'Strangers In The Night', artist: 'Frank Sinatra', mood: 'classic', tempo: 'medium' },
     { title: 'La Vie En Rose', artist: 'Louis Armstrong And His Orchestra', mood: 'classic', tempo: 'slow' },
     { title: 'Put Your Head on My Shoulder', artist: 'Paul Anka', mood: 'romantic', tempo: 'slow' },
-    { title: 'In the Mood', artist: 'Glenn Miller', mood: 'classic', tempo: 'fast' },
     { title: "It's Been A Long, Long Time", artist: 'Harry James', mood: 'classic', tempo: 'medium' },
     { title: "I Don't Want To Set The World On Fire", artist: 'The Ink Spots', mood: 'classic', tempo: 'slow' },
     { title: 'Dream A Little Dream Of Me', artist: 'Ella Fitzgerald, Louis Armstrong', mood: 'classic', tempo: 'slow' },
@@ -142,8 +140,6 @@ function VideosModule({ userEmail, userName, userRole }: VideosModuleProps) {
     { title: 'Come Back Home', artist: 'Ardie Son', mood: 'classical', tempo: 'medium' },
     { title: 'IV Sarabande', artist: 'Brooklyn Classical', mood: 'classical', tempo: 'slow' },
     { title: 'Gymnopédie no 1', artist: 'Romi Kopelman', mood: 'classical', tempo: 'slow' },
-    { title: 'Hallelujah', artist: 'Unknown', mood: 'classical', tempo: 'slow' },
-    { title: 'Bésame Mucho on Harp & Cello', artist: 'Unknown', mood: 'classical', tempo: 'medium' },
     { title: 'Enter Reworked', artist: 'Christopher Galovan', mood: 'classical', tempo: 'medium' },
     { title: 'Reminiscence', artist: 'Ben Winwood', mood: 'classical', tempo: 'slow' },
     { title: 'Flower Duet Lakmé', artist: 'Hawkins', mood: 'classical', tempo: 'medium' }
@@ -218,7 +214,7 @@ function VideosModule({ userEmail, userName, userRole }: VideosModuleProps) {
 
   // Cargar sugerencias guardadas cuando se selecciona una versión
   useEffect(() => {
-    if (activeVersion && scenes.length > 0 && !suggestionsLoaded) {
+    if (activeVersion && scenes.length > 0 && !suggestionsLoadedRef.current) {
       // Si tiene sugerencias guardadas, usarlas (verificar que no sean null y tengan elementos)
       const hasSavedSongs = activeVersion.suggested_songs && Array.isArray(activeVersion.suggested_songs) && activeVersion.suggested_songs.length > 0;
       const hasSavedOpening = activeVersion.suggested_opening_scenes && Array.isArray(activeVersion.suggested_opening_scenes) && activeVersion.suggested_opening_scenes.length > 0;
@@ -237,25 +233,36 @@ function VideosModule({ userEmail, userName, userRole }: VideosModuleProps) {
       if (hasSavedSongs || hasSavedOpening || hasSavedClosing) {
         // Usar sugerencias guardadas
         console.log('✅ Cargando sugerencias guardadas');
+        const hasSavedAnchor = activeVersion.suggested_anchor_scenes && Array.isArray(activeVersion.suggested_anchor_scenes) && activeVersion.suggested_anchor_scenes.length > 0;
+
         if (hasSavedSongs) setSuggestedSongs(activeVersion.suggested_songs!);
         if (hasSavedOpening) setOpeningSuggestions(activeVersion.suggested_opening_scenes!);
         if (hasSavedClosing) setClosingSuggestions(activeVersion.suggested_closing_scenes!);
-        
-        // Generar solo las que faltan
-        if (!hasSavedSongs || !hasSavedOpening || !hasSavedClosing) {
+
+        // Generar lo que falte (siempre necesitamos anchor para el caso en que no esté guardado)
+        const needsGeneration = !hasSavedOpening || !hasSavedClosing || !hasSavedAnchor;
+        const suggestions = needsGeneration ? getSuggestedScenes() : { opening: [], anchor: [], closing: [] };
+
+        if (hasSavedAnchor) {
+          setAnchorOrder(activeVersion.suggested_anchor_scenes!);
+        } else {
+          setAnchorOrder(suggestions.anchor);
+        }
+
+        // Generar y guardar solo las que faltan
+        if (!hasSavedSongs || !hasSavedOpening || !hasSavedClosing || !hasSavedAnchor) {
           console.log('⚠️ Generando sugerencias faltantes');
-          const suggestions = !hasSavedOpening || !hasSavedClosing ? getSuggestedScenes() : { opening: [], closing: [], anchor: [] };
           const songs = !hasSavedSongs ? getSuggestedSongs() : [];
-          
+
           if (!hasSavedOpening) setOpeningSuggestions(suggestions.opening);
           if (!hasSavedClosing) setClosingSuggestions(suggestions.closing);
           if (!hasSavedSongs) setSuggestedSongs(songs);
-          if (suggestions.anchor) setAnchorOrder(suggestions.anchor);
-          
+
           // Guardar las nuevas sugerencias
           saveSuggestions(
             hasSavedOpening ? activeVersion.suggested_opening_scenes! : suggestions.opening,
             hasSavedClosing ? activeVersion.suggested_closing_scenes! : suggestions.closing,
+            hasSavedAnchor ? activeVersion.suggested_anchor_scenes! : suggestions.anchor,
             hasSavedSongs ? activeVersion.suggested_songs! : songs
           );
         }
@@ -273,13 +280,13 @@ function VideosModule({ userEmail, userName, userRole }: VideosModuleProps) {
           
           // Guardar las sugerencias en la base de datos
           console.log('💾 Guardando nuevas sugerencias');
-          saveSuggestions(suggestions.opening, suggestions.closing, songs);
+          saveSuggestions(suggestions.opening, suggestions.closing, suggestions.anchor, songs);
         }
       }
-      
-      setSuggestionsLoaded(true); // Marcar como cargadas para evitar regeneraciones
+
+      suggestionsLoadedRef.current = true; // Marcar como cargadas para evitar regeneraciones
     }
-  }, [activeVersion, scenes, suggestionsLoaded]);
+  }, [activeVersion, scenes]);
 
   // Actualizar todas las sugerencias solo cuando se regeneran manualmente
   useEffect(() => {
@@ -295,8 +302,8 @@ function VideosModule({ userEmail, userName, userRole }: VideosModuleProps) {
       setSuggestedSongs(songs);
       
       // Guardar las sugerencias en la base de datos
-      saveSuggestions(suggestions.opening, suggestions.closing, songs);
-      setSuggestionsLoaded(true); // Marcar como cargadas después de regenerar
+      saveSuggestions(suggestions.opening, suggestions.closing, suggestions.anchor, songs);
+      suggestionsLoadedRef.current = true; // Marcar como cargadas después de regenerar
     }
   }, [suggestionKey]);
 
@@ -382,7 +389,8 @@ function VideosModule({ userEmail, userName, userRole }: VideosModuleProps) {
           ...v,
           suggested_songs: parseSuggestion(v.suggested_songs),
           suggested_opening_scenes: parseSuggestion(v.suggested_opening_scenes),
-          suggested_closing_scenes: parseSuggestion(v.suggested_closing_scenes)
+          suggested_closing_scenes: parseSuggestion(v.suggested_closing_scenes),
+          suggested_anchor_scenes: parseSuggestion(v.suggested_anchor_scenes)
         };
       });
       
@@ -395,11 +403,11 @@ function VideosModule({ userEmail, userName, userRole }: VideosModuleProps) {
       
       setVersions(parsedData);
       
-      // Auto-select Completo version
-      const completoVersion = parsedData.find((v: Version) => v.type === 'long');
-      if (completoVersion) {
-        setActiveVersion(completoVersion);
-        loadVersionScenes(completoVersion.id);
+      // Auto-select Teaser version
+      const teaserVersion = parsedData.find((v: Version) => v.type === 'short');
+      if (teaserVersion) {
+        setActiveVersion(teaserVersion);
+        loadVersionScenes(teaserVersion.id);
       }
     } catch (error) {
       console.error('Error fetching versions:', error);
@@ -430,7 +438,7 @@ function VideosModule({ userEmail, userName, userRole }: VideosModuleProps) {
 
   const selectVersion = (version: Version) => {
     setActiveVersion(version);
-    setSuggestionsLoaded(false); // Reset flag cuando se cambia de versión
+    suggestionsLoadedRef.current = false; // Reset flag cuando se cambia de versión
     loadVersionScenes(version.id);
   };
 
@@ -688,9 +696,9 @@ function VideosModule({ userEmail, userName, userRole }: VideosModuleProps) {
     return sceneGroup.reduce((sum, s) => sum + s.planned_duration, 0);
   };
 
-  const saveSuggestions = async (openingScenes: Scene[], closingScenes: Scene[], songs: any[]) => {
+  const saveSuggestions = async (openingScenes: Scene[], closingScenes: Scene[], anchorScenes: Scene[], songs: any[]) => {
     if (!activeVersion) return;
-    
+
     try {
       await fetch(`${API_BASE}/versions/${activeVersion.id}/suggestions`, {
         method: 'POST',
@@ -698,7 +706,8 @@ function VideosModule({ userEmail, userName, userRole }: VideosModuleProps) {
         body: JSON.stringify({
           songs,
           openingScenes,
-          closingScenes
+          closingScenes,
+          anchorScenes
         })
       });
     } catch (error) {
